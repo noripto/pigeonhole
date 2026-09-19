@@ -1,6 +1,6 @@
 {
-  "id": "classidian",
-  "name": "Classidian",
+  "id": "pigeonhole",
+  "name": "Pigeonhole",
   "version": "0.1.0",
   "minAppVersion": "1.4.0",
   "description": "Classify notes with TypeSafe Jev and file them into folders by attribute.",
