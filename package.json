@@ -1,0 +1,25 @@
+{
+  "name": "classidian",
+  "version": "0.1.0",
+  "license": "MIT",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite build --watch",
+    "build": "tsc --noEmit && vite build",
+    "fmt": "oxfmt .",
+    "lint": "oxlint"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "obsidian": "^1.4.11",
+    "oxfmt": "^0.68.0",
+    "oxlint": "^1.83.0",
+    "typescript": "^5.4.0",
+    "vite": "^8.3.0"
+  },
+  "engines": {
+    "node": ">=22.6"
+  },
+  "packageManager": "pnpm@10.13.1"
+}
