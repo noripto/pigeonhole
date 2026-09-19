@@ -9,7 +9,15 @@ export type ChoiceAnswer = {
   probabilities?: Record<string, number>;
 };
 
-export type Decision = { action: "move"; category: Category } | { action: "skip"; reason: string };
+export type SkipReason =
+  | { code: "badResponse" }
+  | { code: "noMatch" }
+  | { code: "lowConfidence"; confidence: number; threshold: number; top: string }
+  | { code: "unknownLabel"; label: string };
+
+export type Decision =
+  | { action: "move"; category: Category }
+  | { action: "skip"; reason: SkipReason };
 
 export function buildRequest(
   content: string,
@@ -41,29 +49,29 @@ export function decide(
   threshold: number,
 ): Decision {
   if (!answer || typeof answer.choice !== "string") {
-    return { action: "skip", reason: "予期しない API レスポンス（choice が無い）" };
+    return { action: "skip", reason: { code: "badResponse" } };
   }
   if (answer.choice === OTHER) {
-    return { action: "skip", reason: "どの属性にも当てはまらないと判定された" };
+    return { action: "skip", reason: { code: "noMatch" } };
   }
 
   const confidence = typeof answer.confidence === "number" ? answer.confidence : 0;
   if (confidence < threshold) {
     return {
       action: "skip",
-      reason: `confidence ${confidence.toFixed(2)} < ${threshold}（${top2(answer.probabilities)}）`,
+      reason: { code: "lowConfidence", confidence, threshold, top: top2(answer.probabilities) },
     };
   }
 
   const category = cats.find((c) => c.name === answer.choice);
   if (!category) {
-    return { action: "skip", reason: `未知の属性名: ${answer.choice}` };
+    return { action: "skip", reason: { code: "unknownLabel", label: answer.choice } };
   }
   return { action: "move", category };
 }
 
 function top2(probabilities?: Record<string, number>): string {
-  if (!probabilities) return "確率分布なし";
+  if (!probabilities) return "-";
   return Object.entries(probabilities)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 2)

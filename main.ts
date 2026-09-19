@@ -12,6 +12,7 @@ import {
   requestUrl,
 } from "obsidian";
 import { buildRequest, decide, type Category, type Decision } from "./classify.ts";
+import { msg } from "./i18n.ts";
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
 
@@ -48,11 +49,11 @@ export default class PigeonholePlugin extends Plugin {
 
     this.addCommand({
       id: "classify-current-note",
-      name: "このノートを分類",
+      name: msg.cmdNote,
       callback: () => {
         const file = this.app.workspace.getActiveFile();
         if (!file || file.extension !== "md") {
-          new Notice("Pigeonhole: Markdown ファイルを開いてから実行してください");
+          new Notice(`Pigeonhole: ${msg.needMarkdown}`);
           return;
         }
         void this.run([file]);
@@ -61,11 +62,11 @@ export default class PigeonholePlugin extends Plugin {
 
     this.addCommand({
       id: "classify-current-folder",
-      name: "このフォルダの未分類ノートを分類",
+      name: msg.cmdFolder,
       callback: () => {
         const parent = this.app.workspace.getActiveFile()?.parent;
         if (!parent) {
-          new Notice("Pigeonhole: 対象フォルダが分かりません。ノートを開いてから実行してください");
+          new Notice(`Pigeonhole: ${msg.noFolder}`);
           return;
         }
         void this.run(this.unclassifiedIn(parent));
@@ -74,7 +75,7 @@ export default class PigeonholePlugin extends Plugin {
 
     this.addCommand({
       id: "classify-vault",
-      name: "Vault 全体の未分類ノートを分類",
+      name: msg.cmdVault,
       callback: () => void this.run(this.unclassifiedIn(this.app.vault.getRoot())),
     });
 
@@ -120,20 +121,20 @@ export default class PigeonholePlugin extends Plugin {
 
   private async run(files: TFile[], quiet = false) {
     if (!this.settings.apiKey) {
-      new Notice("Pigeonhole: 設定で API キーを入力してください");
+      new Notice(`Pigeonhole: ${msg.noApiKey}`);
       return;
     }
     if (this.settings.categories.length === 0) {
-      new Notice("Pigeonhole: 設定で属性を1つ以上登録してください");
+      new Notice(`Pigeonhole: ${msg.noCategories}`);
       return;
     }
     if (files.length === 0) {
-      if (!quiet) new Notice("Pigeonhole: 対象の未分類ノートがありません");
+      if (!quiet) new Notice(`Pigeonhole: ${msg.nothingToDo}`);
       return;
     }
 
     const single = files.length === 1;
-    const notice = new Notice("Pigeonhole: 分類中…", 0);
+    const notice = new Notice(`Pigeonhole: ${msg.working}`, 0);
     let moved = 0;
     let skipped = 0;
     let failed = 0;
@@ -146,7 +147,7 @@ export default class PigeonholePlugin extends Plugin {
           if (result.action === "move") moved++;
           else {
             skipped++;
-            if (single) new Notice(`Pigeonhole: 移動しませんでした — ${result.reason}`);
+            if (single) new Notice(`Pigeonhole: ${msg.notMoved(msg.skip(result.reason))}`);
           }
         } catch (e) {
           failed++;
@@ -159,7 +160,7 @@ export default class PigeonholePlugin extends Plugin {
     }
 
     if (moved === 0 && (single || quiet)) return;
-    new Notice(`Pigeonhole: 移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`);
+    new Notice(`Pigeonhole: ${msg.summary(moved, skipped, failed)}`);
   }
 
   async classifyFile(file: TFile): Promise<Decision> {
@@ -189,7 +190,7 @@ export default class PigeonholePlugin extends Plugin {
     try {
       answers = res.json?.answers;
     } catch {
-      throw new Error("API レスポンスが JSON ではありません");
+      throw new Error(msg.errNotJson);
     }
 
     const decision = decide(
@@ -209,10 +210,10 @@ export default class PigeonholePlugin extends Plugin {
 
     if (move && target !== file.path) {
       if (this.app.vault.getAbstractFileByPath(target)) {
-        throw new Error(`${target} に同名ファイルがあるため中止しました`);
+        throw new Error(msg.errConflict(target));
       }
       if (missingFolder && !this.settings.createMissingFolder) {
-        throw new Error(`フォルダ ${folder} がありません（設定で自動作成を有効にできます）`);
+        throw new Error(msg.errMissingFolder(folder));
       }
     }
 
@@ -240,8 +241,8 @@ class PigeonholeSettingTab extends PluginSettingTab {
     containerEl.empty();
 
     new Setting(containerEl)
-      .setName("TypeSafe API キー")
-      .setDesc("data.json に平文で保存されます。")
+      .setName(msg.setApiKey)
+      .setDesc(msg.setApiKeyDesc)
       .addText((t) =>
         t
           .setPlaceholder("sk-...")
@@ -252,7 +253,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
           }),
       );
 
-    new Setting(containerEl).setName("frontmatter プロパティ名").addText((t) =>
+    new Setting(containerEl).setName(msg.setProperty).addText((t) =>
       t.setValue(s.propertyName).onChange(async (v) => {
         s.propertyName = v.trim() || "category";
         await this.plugin.saveSettings();
@@ -260,8 +261,8 @@ class PigeonholeSettingTab extends PluginSettingTab {
     );
 
     new Setting(containerEl)
-      .setName("confidence の下限")
-      .setDesc("これを下回ったらファイルを動かしません。")
+      .setName(msg.setThreshold)
+      .setDesc(msg.setThresholdDesc)
       .addSlider((sl) =>
         sl
           .setLimits(0, 1, 0.05)
@@ -273,7 +274,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
           }),
       );
 
-    new Setting(containerEl).setName("送信する本文の文字数上限").addText((t) =>
+    new Setting(containerEl).setName(msg.setMaxChars).addText((t) =>
       t.setValue(String(s.maxChars)).onChange(async (v) => {
         const n = Number(v);
         if (Number.isFinite(n) && n > 0) {
@@ -284,8 +285,8 @@ class PigeonholeSettingTab extends PluginSettingTab {
     );
 
     new Setting(containerEl)
-      .setName("移動先フォルダが無ければ作成")
-      .setDesc("OFF のときは、フォルダが存在しないノートは移動せずエラーとして報告します。")
+      .setName(msg.setCreateFolder)
+      .setDesc(msg.setCreateFolderDesc)
       .addToggle((t) =>
         t.setValue(s.createMissingFolder).onChange(async (v) => {
           s.createMissingFolder = v;
@@ -294,8 +295,8 @@ class PigeonholeSettingTab extends PluginSettingTab {
       );
 
     new Setting(containerEl)
-      .setName("保存時に自動分類")
-      .setDesc("編集停止から10秒後、属性が未設定のノートだけを分類します。")
+      .setName(msg.setAutoOnSave)
+      .setDesc(msg.setAutoOnSaveDesc)
       .addToggle((t) =>
         t.setValue(s.autoOnSave).onChange(async (v) => {
           s.autoOnSave = v;
@@ -303,9 +304,9 @@ class PigeonholeSettingTab extends PluginSettingTab {
         }),
       );
 
-    new Setting(containerEl).setName("属性").setHeading();
+    new Setting(containerEl).setName(msg.attributes).setHeading();
     containerEl.createEl("p", {
-      text: "説明文が判定の手がかりになります。移動先を空にすると属性の付与だけ行います。",
+      text: msg.attributesHint,
       cls: "setting-item-description",
     });
 
@@ -313,7 +314,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
       new Setting(containerEl)
         .addText((t) =>
           t
-            .setPlaceholder("属性名")
+            .setPlaceholder(msg.phName)
             .setValue(cat.name)
             .onChange(async (v) => {
               cat.name = v.trim();
@@ -322,7 +323,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
         )
         .addText((t) =>
           t
-            .setPlaceholder("説明（どんなノートか）")
+            .setPlaceholder(msg.phDesc)
             .setValue(cat.description)
             .onChange(async (v) => {
               cat.description = v;
@@ -331,7 +332,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
         )
         .addText((t) =>
           t
-            .setPlaceholder("移動先フォルダ")
+            .setPlaceholder(msg.phFolder)
             .setValue(cat.folder)
             .onChange(async (v) => {
               cat.folder = v.trim();
@@ -341,7 +342,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
         .addExtraButton((b) =>
           b
             .setIcon("trash")
-            .setTooltip("削除")
+            .setTooltip(msg.remove)
             .onClick(async () => {
               s.categories.splice(i, 1);
               await this.plugin.saveSettings();
@@ -351,7 +352,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
     });
 
     new Setting(containerEl).addButton((b) =>
-      b.setButtonText("属性を追加").onClick(async () => {
+      b.setButtonText(msg.addAttribute).onClick(async () => {
         s.categories.push({ name: "", description: "", folder: "" });
         await this.plugin.saveSettings();
         this.display();
