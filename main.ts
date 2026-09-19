@@ -15,7 +15,7 @@ import { buildRequest, decide, type Category, type Decision } from "./classify.t
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
 
-type JevSettings = {
+type PigeonholeSettings = {
   apiKey: string;
   categories: Category[];
   propertyName: string;
@@ -25,7 +25,7 @@ type JevSettings = {
   createMissingFolder: boolean;
 };
 
-const DEFAULT_SETTINGS: JevSettings = {
+const DEFAULT_SETTINGS: PigeonholeSettings = {
   apiKey: "",
   categories: [],
   propertyName: "category",
@@ -35,8 +35,8 @@ const DEFAULT_SETTINGS: JevSettings = {
   createMissingFolder: false,
 };
 
-export default class JevClassifierPlugin extends Plugin {
-  settings: JevSettings = DEFAULT_SETTINGS;
+export default class PigeonholePlugin extends Plugin {
+  settings: PigeonholeSettings = DEFAULT_SETTINGS;
 
   private pending = new Set<string>();
 
@@ -44,7 +44,7 @@ export default class JevClassifierPlugin extends Plugin {
 
   async onload() {
     this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
-    this.addSettingTab(new JevSettingTab(this.app, this));
+    this.addSettingTab(new PigeonholeSettingTab(this.app, this));
 
     this.addCommand({
       id: "classify-current-note",
@@ -52,7 +52,7 @@ export default class JevClassifierPlugin extends Plugin {
       callback: () => {
         const file = this.app.workspace.getActiveFile();
         if (!file || file.extension !== "md") {
-          new Notice("Jev: Markdown ファイルを開いてから実行してください");
+          new Notice("Pigeonhole: Markdown ファイルを開いてから実行してください");
           return;
         }
         void this.run([file]);
@@ -65,7 +65,7 @@ export default class JevClassifierPlugin extends Plugin {
       callback: () => {
         const parent = this.app.workspace.getActiveFile()?.parent;
         if (!parent) {
-          new Notice("Jev: 対象フォルダが分かりません。ノートを開いてから実行してください");
+          new Notice("Pigeonhole: 対象フォルダが分かりません。ノートを開いてから実行してください");
           return;
         }
         void this.run(this.unclassifiedIn(parent));
@@ -120,38 +120,38 @@ export default class JevClassifierPlugin extends Plugin {
 
   private async run(files: TFile[], quiet = false) {
     if (!this.settings.apiKey) {
-      new Notice("Jev: 設定で API キーを入力してください");
+      new Notice("Pigeonhole: 設定で API キーを入力してください");
       return;
     }
     if (this.settings.categories.length === 0) {
-      new Notice("Jev: 設定で属性を1つ以上登録してください");
+      new Notice("Pigeonhole: 設定で属性を1つ以上登録してください");
       return;
     }
     if (files.length === 0) {
-      if (!quiet) new Notice("Jev: 対象の未分類ノートがありません");
+      if (!quiet) new Notice("Pigeonhole: 対象の未分類ノートがありません");
       return;
     }
 
     const single = files.length === 1;
-    const notice = new Notice("Jev: 分類中…", 0);
+    const notice = new Notice("Pigeonhole: 分類中…", 0);
     let moved = 0;
     let skipped = 0;
     let failed = 0;
 
     try {
       for (let i = 0; i < files.length; i++) {
-        if (!single) notice.setMessage(`Jev: ${i + 1}/${files.length} ${files[i].basename}`);
+        if (!single) notice.setMessage(`Pigeonhole: ${i + 1}/${files.length} ${files[i].basename}`);
         try {
           const result = await this.classifyFile(files[i]);
           if (result.action === "move") moved++;
           else {
             skipped++;
-            if (single) new Notice(`Jev: 移動しませんでした — ${result.reason}`);
+            if (single) new Notice(`Pigeonhole: 移動しませんでした — ${result.reason}`);
           }
         } catch (e) {
           failed++;
-          console.error("Jev:", files[i].path, e);
-          if (single) new Notice(`Jev: ${(e as Error).message}`);
+          console.error("Pigeonhole:", files[i].path, e);
+          if (single) new Notice(`Pigeonhole: ${(e as Error).message}`);
         }
       }
     } finally {
@@ -159,7 +159,7 @@ export default class JevClassifierPlugin extends Plugin {
     }
 
     if (moved === 0 && (single || quiet)) return;
-    new Notice(`Jev: 移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`);
+    new Notice(`Pigeonhole: 移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`);
   }
 
   async classifyFile(file: TFile): Promise<Decision> {
@@ -226,10 +226,10 @@ export default class JevClassifierPlugin extends Plugin {
   }
 }
 
-class JevSettingTab extends PluginSettingTab {
-  plugin: JevClassifierPlugin;
+class PigeonholeSettingTab extends PluginSettingTab {
+  plugin: PigeonholePlugin;
 
-  constructor(app: App, plugin: JevClassifierPlugin) {
+  constructor(app: App, plugin: PigeonholePlugin) {
     super(app, plugin);
     this.plugin = plugin;
   }
