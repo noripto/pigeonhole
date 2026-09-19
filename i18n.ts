@@ -37,6 +37,7 @@ const en = {
   setApiKey: "TypeSafe API key",
   setApiKeyDesc: "Stored as plain text in data.json.",
   setProperty: "Frontmatter property name",
+  setSubProperty: "Frontmatter property name for sub-attributes",
   setThreshold: "Confidence threshold",
   setThresholdDesc: "Below this, the note is not moved.",
   setMaxChars: "Characters of body text to send",
@@ -49,11 +50,15 @@ const en = {
 
   attributes: "Attributes",
   attributesHint:
-    "The description is what the model judges against. Leave the folder empty to set the property without moving the file.",
+    "The description is what the model judges against. Leave the folder empty to set the property without moving the file. Give an attribute sub-attributes to classify in two steps; a sub-attribute with an empty folder uses its parent's folder.",
+  colName: "Name",
+  colDesc: "Description",
+  colFolder: "Target folder",
   phName: "Name",
   phDesc: "Description (what kind of note)",
   phFolder: "Target folder",
   addAttribute: "Add attribute",
+  addChild: "Add sub-attribute",
   remove: "Remove",
 };
 
@@ -93,6 +98,7 @@ const ja: typeof en = {
   setApiKey: "TypeSafe API キー",
   setApiKeyDesc: "data.json に平文で保存されます。",
   setProperty: "frontmatter プロパティ名",
+  setSubProperty: "frontmatter サブ属性プロパティ名",
   setThreshold: "confidence の下限",
   setThresholdDesc: "これを下回ったらファイルを動かしません。",
   setMaxChars: "送信する本文の文字数上限",
@@ -103,11 +109,16 @@ const ja: typeof en = {
     "編集停止から10秒後、属性が未設定のノートだけを分類します。いま開いているノートは対象外です。",
 
   attributes: "属性",
-  attributesHint: "説明文が判定の手がかりになります。移動先を空にすると属性の付与だけ行います。",
+  attributesHint:
+    "説明文が判定の手がかりになります。移動先を空にすると属性の付与だけ行います。子属性を追加すると2段階で判定します。子属性の移動先が空のときは親の移動先を使います。",
+  colName: "属性名",
+  colDesc: "説明",
+  colFolder: "移動先フォルダ",
   phName: "属性名",
   phDesc: "説明（どんなノートか）",
   phFolder: "移動先フォルダ",
   addAttribute: "属性を追加",
+  addChild: "子属性を追加",
   remove: "削除",
 };
 

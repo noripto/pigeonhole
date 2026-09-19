@@ -10,16 +10,26 @@ import {
   debounce,
   normalizePath,
   requestUrl,
+  setIcon,
 } from "obsidian";
-import { buildRequest, decide, type Category, type Decision } from "./classify.ts";
+import {
+  buildRequest,
+  decide,
+  type Category,
+  type ChoiceAnswer,
+  type Decision,
+} from "./classify.ts";
 import { msg } from "./i18n.ts";
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
+
+const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
 
 type PigeonholeSettings = {
   apiKey: string;
   categories: Category[];
   propertyName: string;
+  subPropertyName: string;
   confidenceThreshold: number;
   maxChars: number;
   autoOnSave: boolean;
@@ -30,6 +40,7 @@ const DEFAULT_SETTINGS: PigeonholeSettings = {
   apiKey: "",
   categories: [],
   propertyName: "category",
+  subPropertyName: "subcategory",
   confidenceThreshold: 0.6,
   maxChars: 4000,
   autoOnSave: false,
@@ -163,15 +174,7 @@ export default class PigeonholePlugin extends Plugin {
     new Notice(`Pigeonhole: ${msg.summary(moved, skipped, failed)}`);
   }
 
-  async classifyFile(file: TFile): Promise<Decision> {
-    const content = await this.app.vault.cachedRead(file);
-    const body = buildRequest(
-      content,
-      file.basename,
-      this.settings.categories,
-      this.settings.maxChars,
-    );
-
+  private async ask(body: object): Promise<ChoiceAnswer | undefined> {
     const res = await requestUrl({
       url: API_URL,
       method: "POST",
@@ -185,26 +188,40 @@ export default class PigeonholePlugin extends Plugin {
     if (res.status !== 200) {
       throw new Error(`API ${res.status}: ${res.text.slice(0, 200)}`);
     }
-
-    let answers;
     try {
-      answers = res.json?.answers;
+      return res.json?.answers?.category;
     } catch {
       throw new Error(msg.errNotJson);
     }
+  }
 
-    const decision = decide(
-      answers?.category,
-      this.settings.categories,
-      this.settings.confidenceThreshold,
-    );
-    if (decision.action === "move") await this.apply(file, decision.category);
+  async classifyFile(file: TFile): Promise<Decision> {
+    const content = await this.app.vault.cachedRead(file);
+    const { maxChars, confidenceThreshold } = this.settings;
+    const categories = named(this.settings.categories);
+
+    const answer = await this.ask(buildRequest(content, file.basename, categories, maxChars));
+    const decision = decide(answer, categories, confidenceThreshold);
+    if (decision.action !== "move") return decision;
+
+    const children = named(decision.category.children ?? []);
+    let sub: Category | undefined;
+    if (children.length > 0) {
+      const subAnswer = await this.ask(
+        buildRequest(content, file.basename, children, maxChars, decision.category),
+      );
+      const subDecision = decide(subAnswer, children, confidenceThreshold);
+      if (subDecision.action === "move") sub = subDecision.category;
+    }
+
+    await this.apply(file, decision.category, sub);
     return decision;
   }
 
-  private async apply(file: TFile, category: Category) {
-    const folder = normalizePath(category.folder);
-    const move = category.folder !== "" && folder !== "." && folder !== "/";
+  private async apply(file: TFile, category: Category, sub?: Category) {
+    const destination = sub?.folder || category.folder;
+    const folder = normalizePath(destination);
+    const move = destination !== "" && folder !== "." && folder !== "/";
     const target = normalizePath(`${folder}/${file.name}`);
     const missingFolder = move && !this.app.vault.getAbstractFileByPath(folder);
 
@@ -219,6 +236,9 @@ export default class PigeonholePlugin extends Plugin {
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       fm[this.settings.propertyName] = category.name;
+      if (!this.settings.subPropertyName) return;
+      if (sub) fm[this.settings.subPropertyName] = sub.name;
+      else delete fm[this.settings.subPropertyName];
     });
 
     if (!move || target === file.path) return;
@@ -256,6 +276,13 @@ class PigeonholeSettingTab extends PluginSettingTab {
     new Setting(containerEl).setName(msg.setProperty).addText((t) =>
       t.setValue(s.propertyName).onChange(async (v) => {
         s.propertyName = v.trim() || "category";
+        await this.plugin.saveSettings();
+      }),
+    );
+
+    new Setting(containerEl).setName(msg.setSubProperty).addText((t) =>
+      t.setValue(s.subPropertyName).onChange(async (v) => {
+        s.subPropertyName = v.trim();
         await this.plugin.saveSettings();
       }),
     );
@@ -310,53 +337,69 @@ class PigeonholeSettingTab extends PluginSettingTab {
       cls: "setting-item-description",
     });
 
+    const grid = containerEl.createDiv({ cls: "pigeonhole-attrs" });
+    for (const label of [msg.colName, msg.colDesc, msg.colFolder]) {
+      grid.createDiv({ text: label, cls: "pigeonhole-head" });
+    }
+    grid.createDiv();
+    grid.createDiv();
+
     s.categories.forEach((cat, i) => {
-      new Setting(containerEl)
-        .addText((t) =>
-          t
-            .setPlaceholder(msg.phName)
-            .setValue(cat.name)
-            .onChange(async (v) => {
-              cat.name = v.trim();
-              await this.plugin.saveSettings();
-            }),
-        )
-        .addText((t) =>
-          t
-            .setPlaceholder(msg.phDesc)
-            .setValue(cat.description)
-            .onChange(async (v) => {
-              cat.description = v;
-              await this.plugin.saveSettings();
-            }),
-        )
-        .addText((t) =>
-          t
-            .setPlaceholder(msg.phFolder)
-            .setValue(cat.folder)
-            .onChange(async (v) => {
-              cat.folder = v.trim();
-              await this.plugin.saveSettings();
-            }),
-        )
-        .addExtraButton((b) =>
-          b
-            .setIcon("trash")
-            .setTooltip(msg.remove)
-            .onClick(async () => {
-              s.categories.splice(i, 1);
-              await this.plugin.saveSettings();
-              this.display();
-            }),
-        );
+      this.attrRow(grid, cat, false);
+      this.iconButton(grid, "plus", msg.addChild, () => {
+        if (!cat.children) cat.children = [];
+        cat.children.push({ name: "", description: "", folder: "" });
+        void this.saveAndRedraw();
+      });
+      this.iconButton(grid, "trash", msg.remove, () => {
+        s.categories.splice(i, 1);
+        void this.saveAndRedraw();
+      });
+
+      (cat.children ?? []).forEach((child, j) => {
+        this.attrRow(grid, child, true);
+        grid.createDiv();
+        this.iconButton(grid, "trash", msg.remove, () => {
+          cat.children?.splice(j, 1);
+          void this.saveAndRedraw();
+        });
+      });
     });
 
     new Setting(containerEl).addButton((b) =>
-      b.setButtonText(msg.addAttribute).onClick(async () => {
+      b.setButtonText(msg.addAttribute).onClick(() => {
         s.categories.push({ name: "", description: "", folder: "" });
-        await this.plugin.saveSettings();
-        this.display();
+        void this.saveAndRedraw();
       }),
     );
+  }
+
+  private async saveAndRedraw() {
+    await this.plugin.saveSettings();
+    this.display();
+  }
+
+  private attrRow(grid: HTMLElement, cat: Category, child: boolean) {
+    const first = child ? grid.createDiv({ cls: "pigeonhole-child-cell" }) : grid.createDiv();
+    this.field(first, cat.name, msg.phName, (v) => (cat.name = v.trim()));
+    this.field(grid, cat.description, msg.phDesc, (v) => (cat.description = v));
+    this.field(grid, cat.folder, msg.phFolder, (v) => (cat.folder = v.trim()));
+  }
+
+  private field(el: HTMLElement, value: string, placeholder: string, set: (v: string) => void) {
+    const input = el.createEl("input", { type: "text", value, placeholder });
+    input.addEventListener("input", async () => {
+      set(input.value);
+      await this.plugin.saveSettings();
+    });
+  }
+
+  private iconButton(el: HTMLElement, icon: string, label: string, onClick: () => void) {
+    const button = el.createEl("button", {
+      cls: "clickable-icon",
+      attr: { "aria-label": label },
+    });
+    setIcon(button, icon);
+    button.addEventListener("click", onClick);
   }
 }
