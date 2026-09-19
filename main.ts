@@ -22,6 +22,7 @@ type JevSettings = {
   confidenceThreshold: number;
   maxChars: number;
   autoOnSave: boolean;
+  createMissingFolder: boolean;
 };
 
 const DEFAULT_SETTINGS: JevSettings = {
@@ -31,6 +32,7 @@ const DEFAULT_SETTINGS: JevSettings = {
   confidenceThreshold: 0.6,
   maxChars: 4000,
   autoOnSave: false,
+  createMissingFolder: false,
 };
 
 export default class JevClassifierPlugin extends Plugin {
@@ -200,21 +202,26 @@ export default class JevClassifierPlugin extends Plugin {
   }
 
   private async apply(file: TFile, category: Category) {
+    const folder = normalizePath(category.folder);
+    const move = category.folder !== "" && folder !== "." && folder !== "/";
+    const target = normalizePath(`${folder}/${file.name}`);
+    const missingFolder = move && !this.app.vault.getAbstractFileByPath(folder);
+
+    if (move && target !== file.path) {
+      if (this.app.vault.getAbstractFileByPath(target)) {
+        throw new Error(`${target} に同名ファイルがあるため中止しました`);
+      }
+      if (missingFolder && !this.settings.createMissingFolder) {
+        throw new Error(`フォルダ ${folder} がありません（設定で自動作成を有効にできます）`);
+      }
+    }
+
     await this.app.fileManager.processFrontMatter(file, (fm) => {
       fm[this.settings.propertyName] = category.name;
     });
 
-    const folder = normalizePath(category.folder);
-    if (!category.folder || folder === "." || folder === "/") return;
-
-    const target = normalizePath(`${folder}/${file.name}`);
-    if (target === file.path) return;
-    if (this.app.vault.getAbstractFileByPath(target)) {
-      throw new Error(`${target} に同名ファイルがあるため移動を中止しました`);
-    }
-    if (!this.app.vault.getAbstractFileByPath(folder)) {
-      await this.app.vault.createFolder(folder);
-    }
+    if (!move || target === file.path) return;
+    if (missingFolder) await this.app.vault.createFolder(folder);
     await this.app.fileManager.renameFile(file, target);
   }
 }
@@ -275,6 +282,16 @@ class JevSettingTab extends PluginSettingTab {
         }
       }),
     );
+
+    new Setting(containerEl)
+      .setName("移動先フォルダが無ければ作成")
+      .setDesc("OFF のときは、フォルダが存在しないノートは移動せずエラーとして報告します。")
+      .addToggle((t) =>
+        t.setValue(s.createMissingFolder).onChange(async (v) => {
+          s.createMissingFolder = v;
+          await this.plugin.saveSettings();
+        }),
+      );
 
     new Setting(containerEl)
       .setName("保存時に自動分類")

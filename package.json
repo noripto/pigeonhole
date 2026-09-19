@@ -1,8 +1,8 @@
 {
   "name": "classidian",
   "version": "0.1.0",
-  "license": "MIT",
   "private": true,
+  "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
