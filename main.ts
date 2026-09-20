@@ -228,7 +228,8 @@ export default class PigeonholePlugin extends Plugin {
       new Notice(`Pigeonhole: ${msg.noApiKey}`);
       return;
     }
-    if (this.candidates().length === 0) {
+    const categories = this.candidates();
+    if (categories.length === 0) {
       new Notice(`Pigeonhole: ${msg.noCategories}`);
       return;
     }
@@ -239,6 +240,10 @@ export default class PigeonholePlugin extends Plugin {
 
     const single = files.length === 1;
     const notice = new Notice(`Pigeonhole: ${msg.working}`, 0);
+    console.log(
+      `Pigeonhole: ${files.length} notes, ${categories.length} candidates:`,
+      categories.map((c) => c.name).join(", "),
+    );
     let moved = 0;
     let skipped = 0;
     let failed = 0;
@@ -247,13 +252,17 @@ export default class PigeonholePlugin extends Plugin {
       for (let i = 0; i < files.length; i++) {
         if (!single) notice.setMessage(`Pigeonhole: ${i + 1}/${files.length} ${files[i].basename}`);
         try {
-          const result = await this.classifyFile(files[i]);
-          if (result.action === "move") moved++;
-          else {
+          const result = await this.classifyFile(files[i], categories);
+          if (result.action === "move") {
+            moved++;
+            console.log(
+              `Pigeonhole: ${files[i].path} -> ${result.category.name} (${result.confidence.toFixed(2)})`,
+            );
+          } else {
             skipped++;
             const text = msg.notMoved(msg.skip(result.reason));
+            console.log(`Pigeonhole: ${files[i].path} ${text}`);
             if (single) new Notice(`Pigeonhole: ${text}`);
-            else console.log("Pigeonhole:", files[i].path, text);
           }
         } catch (e) {
           failed++;
@@ -292,10 +301,9 @@ export default class PigeonholePlugin extends Plugin {
     return payload?.answers?.category;
   }
 
-  async classifyFile(file: TFile): Promise<Decision> {
+  async classifyFile(file: TFile, categories: Category[]): Promise<Decision> {
     const content = await this.app.vault.cachedRead(file);
     const { maxChars, confidenceThreshold } = this.settings;
-    const categories = this.candidates();
 
     const answer = await this.ask(buildRequest(content, file.basename, categories, maxChars));
     const decision = decide(answer, categories, confidenceThreshold);
