@@ -44,7 +44,7 @@ Run one of these from the command palette:
 | Classify unclassified notes in the vault   | Classifies every unclassified note in the vault.                                  |
 
 
-For each note, Pigeonhole picks one folder or attribute, writes it to frontmatter as `category: meeting`, and moves the file there. If the attribute has sub-attributes, the chosen one is written as `subcategory: retro` and its folder is used instead. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
+For each note, Pigeonhole picks one folder or attribute, writes it to frontmatter as `category: meeting`, and moves the file there. A nested destination is split across the two properties, so `work/beacon` is written as `category: work` and `subcategory: beacon`. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
 
 The note is left where it is when the model is unsure, or when none of your attributes fit. A notice tells you why. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands.
 
@@ -57,6 +57,7 @@ The note is left where it is when the model is unsure, or when none of your attr
 | Frontmatter property name                    | `category`    | The frontmatter key the attribute is written to.                                                                |
 | Frontmatter property name for sub-attributes | `subcategory` | The key the sub-attribute is written to. Leave it empty to skip writing it.                                     |
 | Confidence threshold                         | 0.6           | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                |
+| Excluded paths | (empty) | One folder or note per line. Never used as a destination; notes under them are skipped by the bulk commands and by classify on save. |
 | Characters of body text to send              | 4000          | How much of the note body is sent.                                                                              |
 | Create the target folder if missing          | off           | When off, a note whose target folder does not exist is reported as an error instead of being moved.             |
 | Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched. |
@@ -112,7 +113,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | Vault 全体の未分類ノートを分類 | Vault 内の未分類ノートをすべて分類する。       |
 
 
-各ノートについてフォルダまたは属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、そこへ移動する。子属性がある場合は `subcategory: retro` も書き込み、移動先は子属性のフォルダになる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
+各ノートについてフォルダまたは属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、そこへ移動する。階層のある移動先は2つのプロパティに分けて書かれる。`work/beacon` なら `category: work` と `subcategory: beacon` になる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
 
 モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は通知に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。
 
@@ -125,6 +126,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | frontmatter プロパティ名     | `category`    | 属性を書き込む frontmatter のキー。                  |
 | frontmatter サブ属性プロパティ名 | `subcategory` | 子属性を書き込むキー。空にすると書き込まない。                   |
 | confidence の下限         | 0.6           | これを下回ると移動しない。誤った振り分けが多いときは上げる。            |
+| 除外パス | （空） | 1行に1つ。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になる。 |
 | 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                              |
 | 移動先フォルダが無ければ作成         | OFF           | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。 |
 | 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。         |
