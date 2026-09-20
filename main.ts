@@ -120,6 +120,25 @@ export default class PigeonholePlugin extends Plugin {
     return !this.settings.subPropertyName || fm[this.settings.subPropertyName] != null;
   }
 
+  private candidates(): Category[] {
+    const cats = named(this.settings.categories);
+    const used = new Set(cats.flatMap((c) => [c.name, c.folder]));
+
+    Vault.recurseChildren(this.app.vault.getRoot(), (f) => {
+      if (!(f instanceof TFolder) || f.isRoot() || used.has(f.path)) return;
+      const titles = f.children
+        .filter((c): c is TFile => c instanceof TFile && c.extension === "md")
+        .slice(0, 5)
+        .map((c) => c.basename);
+      cats.push({
+        name: f.path,
+        description: titles.length === 0 ? f.path : `${f.path} (${titles.join(", ")})`,
+        folder: f.path,
+      });
+    });
+    return cats;
+  }
+
   private unclassifiedIn(folder: TFolder): TFile[] {
     const files: TFile[] = [];
     Vault.recurseChildren(folder, (f) => {
@@ -145,7 +164,7 @@ export default class PigeonholePlugin extends Plugin {
       new Notice(`Pigeonhole: ${msg.noApiKey}`);
       return;
     }
-    if (this.settings.categories.length === 0) {
+    if (this.candidates().length === 0) {
       new Notice(`Pigeonhole: ${msg.noCategories}`);
       return;
     }
@@ -210,7 +229,7 @@ export default class PigeonholePlugin extends Plugin {
   async classifyFile(file: TFile): Promise<Decision> {
     const content = await this.app.vault.cachedRead(file);
     const { maxChars, confidenceThreshold } = this.settings;
-    const categories = named(this.settings.categories);
+    const categories = this.candidates();
 
     const answer = await this.ask(buildRequest(content, file.basename, categories, maxChars));
     const decision = decide(answer, categories, confidenceThreshold);
