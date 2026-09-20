@@ -36,7 +36,6 @@ execFileSync(
     version,
     "main.js",
     "manifest.json",
-    "styles.css",
     "--title",
     version,
     "--generate-notes",

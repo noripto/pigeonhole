@@ -13,7 +13,7 @@
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
-    "obsidian": "^1.4.11",
+    "obsidian": "^1.13.0",
     "oxfmt": "^0.68.0",
     "oxlint": "^1.83.0",
     "typescript": "^5.4.0",
