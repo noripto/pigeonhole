@@ -8,7 +8,8 @@
     "dev": "vite build --watch",
     "build": "tsc --noEmit && vite build",
     "fmt": "oxfmt . \"!**/*.md\"",
-    "lint": "oxlint"
+    "lint": "oxlint",
+    "release": "node release.mjs"
   },
   "devDependencies": {
     "@types/node": "^20.11.0",
