@@ -3,14 +3,14 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
-  Setting,
   TFile,
   TFolder,
   Vault,
   debounce,
   normalizePath,
   requestUrl,
-  setIcon,
+  type SettingDefinitionItem,
+  type SettingDefinitionPage,
 } from "obsidian";
 import {
   buildRequest,
@@ -24,6 +24,8 @@ import { msg } from "./i18n.ts";
 const API_URL = "https://api.typesafe.ai/v1/systemone";
 
 const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
+
+const blank = (): Category => ({ name: "", description: "", folder: "" });
 
 const joinFolder = (parent: string, child: string) =>
   parent === "" || child === "" ? parent || child : `${parent}/${child}`;
@@ -60,7 +62,8 @@ export default class PigeonholePlugin extends Plugin {
   private flushPending = debounce(() => void this.drain(), 10000, true);
 
   async onload() {
-    this.settings = Object.assign({}, DEFAULT_SETTINGS, await this.loadData());
+    const saved = (await this.loadData()) as Partial<PigeonholeSettings> | null;
+    this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
     this.addSettingTab(new PigeonholeSettingTab(this.app, this));
 
     this.addCommand({
@@ -116,7 +119,8 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private isClassified(file: TFile): boolean {
-    const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
+    const fm: Record<string, unknown> | undefined =
+      this.app.metadataCache.getFileCache(file)?.frontmatter;
     if (!fm) return false;
 
     const name = fm[this.settings.propertyName];
@@ -233,11 +237,13 @@ export default class PigeonholePlugin extends Plugin {
     if (res.status !== 200) {
       throw new Error(`API ${res.status}: ${res.text.slice(0, 200)}`);
     }
+    let payload: { answers?: Record<string, ChoiceAnswer> } | undefined;
     try {
-      return res.json?.answers?.category;
+      payload = res.json as { answers?: Record<string, ChoiceAnswer> } | undefined;
     } catch {
       throw new Error(msg.errNotJson);
     }
+    return payload?.answers?.category;
   }
 
   async classifyFile(file: TFile): Promise<Decision> {
@@ -276,7 +282,7 @@ export default class PigeonholePlugin extends Plugin {
     const [head, ...rest] = category.name.split("/");
     const subName = sub ? sub.name : rest.join("/");
 
-    await this.app.fileManager.processFrontMatter(file, (fm) => {
+    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
       fm[this.settings.propertyName] = head;
       if (!this.settings.subPropertyName) return;
       if (subName !== "") fm[this.settings.subPropertyName] = subName;
@@ -307,6 +313,19 @@ export default class PigeonholePlugin extends Plugin {
   }
 }
 
+const resolve = (root: unknown, key: string): unknown =>
+  key.split(".").reduce<unknown>((value, part) => (value as Record<string, unknown>)[part], root);
+
+const assign = (root: Record<string, unknown>, key: string, value: unknown) => {
+  const parts = key.split(".");
+  const last = parts.pop() ?? "";
+  const target = parts.reduce<Record<string, unknown>>(
+    (obj, part) => obj[part] as Record<string, unknown>,
+    root,
+  );
+  target[last] = value;
+};
+
 class PigeonholeSettingTab extends PluginSettingTab {
   plugin: PigeonholePlugin;
 
@@ -315,167 +334,110 @@ class PigeonholeSettingTab extends PluginSettingTab {
     this.plugin = plugin;
   }
 
-  display(): void {
-    const { containerEl } = this;
+  getSettingDefinitions(): SettingDefinitionItem[] {
     const s = this.plugin.settings;
-    containerEl.empty();
+    return [
+      {
+        name: msg.setApiKey,
+        desc: msg.setApiKeyDesc,
+        control: { type: "text", key: "apiKey", placeholder: "apikey_..." },
+      },
+      { name: msg.setProperty, control: { type: "text", key: "propertyName" } },
+      { name: msg.setSubProperty, control: { type: "text", key: "subPropertyName" } },
+      {
+        name: msg.setThreshold,
+        desc: msg.setThresholdDesc,
+        control: { type: "slider", key: "confidenceThreshold", min: 0, max: 1, step: 0.05 },
+      },
+      {
+        name: msg.setExclude,
+        desc: msg.setExcludeDesc,
+        control: { type: "textarea", key: "excludePaths", placeholder: msg.phExclude, rows: 3 },
+      },
+      { name: msg.setMaxChars, control: { type: "number", key: "maxChars", min: 1 } },
+      {
+        name: msg.setCreateFolder,
+        desc: msg.setCreateFolderDesc,
+        control: { type: "toggle", key: "createMissingFolder" },
+      },
+      {
+        name: msg.setAutoOnSave,
+        desc: msg.setAutoOnSaveDesc,
+        control: { type: "toggle", key: "autoOnSave" },
+      },
+      {
+        type: "list",
+        name: msg.attributes,
+        desc: msg.attributesHint,
+        emptyState: msg.attributesEmpty,
+        addItem: {
+          name: msg.addAttribute,
+          action: () => this.mutate(() => s.categories.push(blank())),
+        },
+        onDelete: (index) => this.mutate(() => s.categories.splice(index, 1)),
+        items: s.categories.map((cat, i) => this.page(cat, `categories.${i}`, true)),
+      },
+    ];
+  }
 
-    new Setting(containerEl)
-      .setName(msg.setApiKey)
-      .setDesc(msg.setApiKeyDesc)
-      .addText((t) =>
-        t
-          .setPlaceholder("sk-...")
-          .setValue(s.apiKey)
-          .onChange(async (v) => {
-            s.apiKey = v.trim();
-            await this.plugin.saveSettings();
-          }),
-      );
+  getControlValue(key: string): unknown {
+    if (key === "excludePaths") return this.plugin.settings.excludePaths.join("\n");
+    return resolve(this.plugin.settings, key);
+  }
 
-    new Setting(containerEl).setName(msg.setProperty).addText((t) =>
-      t.setValue(s.propertyName).onChange(async (v) => {
-        s.propertyName = v.trim() || "category";
-        await this.plugin.saveSettings();
-      }),
-    );
-
-    new Setting(containerEl).setName(msg.setSubProperty).addText((t) =>
-      t.setValue(s.subPropertyName).onChange(async (v) => {
-        s.subPropertyName = v.trim();
-        await this.plugin.saveSettings();
-      }),
-    );
-
-    new Setting(containerEl)
-      .setName(msg.setThreshold)
-      .setDesc(msg.setThresholdDesc)
-      .addSlider((sl) =>
-        sl
-          .setLimits(0, 1, 0.05)
-          .setValue(s.confidenceThreshold)
-          .setDynamicTooltip()
-          .onChange(async (v) => {
-            s.confidenceThreshold = v;
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl)
-      .setName(msg.setExclude)
-      .setDesc(msg.setExcludeDesc)
-      .addTextArea((t) =>
-        t
-          .setPlaceholder(msg.phExclude)
-          .setValue(s.excludePaths.join("\n"))
-          .onChange(async (v) => {
-            s.excludePaths = v
-              .split("\n")
-              .map((line) => normalizePath(line.trim()))
-              .filter((line) => line !== "" && line !== "." && line !== "/");
-            await this.plugin.saveSettings();
-          }),
-      );
-
-    new Setting(containerEl).setName(msg.setMaxChars).addText((t) =>
-      t.setValue(String(s.maxChars)).onChange(async (v) => {
-        const n = Number(v);
-        if (Number.isFinite(n) && n > 0) {
-          s.maxChars = Math.floor(n);
-          await this.plugin.saveSettings();
-        }
-      }),
-    );
-
-    new Setting(containerEl)
-      .setName(msg.setCreateFolder)
-      .setDesc(msg.setCreateFolderDesc)
-      .addToggle((t) =>
-        t.setValue(s.createMissingFolder).onChange(async (v) => {
-          s.createMissingFolder = v;
-          await this.plugin.saveSettings();
-        }),
-      );
-
-    new Setting(containerEl)
-      .setName(msg.setAutoOnSave)
-      .setDesc(msg.setAutoOnSaveDesc)
-      .addToggle((t) =>
-        t.setValue(s.autoOnSave).onChange(async (v) => {
-          s.autoOnSave = v;
-          await this.plugin.saveSettings();
-        }),
-      );
-
-    new Setting(containerEl).setName(msg.attributes).setHeading();
-    containerEl.createEl("p", {
-      text: msg.attributesHint,
-      cls: "setting-item-description",
-    });
-
-    const grid = containerEl.createDiv({ cls: "pigeonhole-attrs" });
-    for (const label of [msg.colName, msg.colDesc, msg.colFolder]) {
-      grid.createDiv({ text: label, cls: "pigeonhole-head" });
+  async setControlValue(key: string, value: unknown): Promise<void> {
+    const s = this.plugin.settings;
+    if (key === "excludePaths") {
+      s.excludePaths = String(value)
+        .split("\n")
+        .map((line) => normalizePath(line.trim()))
+        .filter((line) => line !== "" && line !== "." && line !== "/");
+    } else {
+      const next = typeof value === "string" && !key.endsWith("description") ? value.trim() : value;
+      assign(s as unknown as Record<string, unknown>, key, next);
+      if (s.propertyName === "") s.propertyName = DEFAULT_SETTINGS.propertyName;
     }
-    grid.createDiv();
-    grid.createDiv();
-
-    s.categories.forEach((cat, i) => {
-      this.attrRow(grid, cat, false);
-      this.iconButton(grid, "plus", msg.addChild, () => {
-        if (!cat.children) cat.children = [];
-        cat.children.push({ name: "", description: "", folder: "" });
-        void this.saveAndRedraw();
-      });
-      this.iconButton(grid, "trash", msg.remove, () => {
-        s.categories.splice(i, 1);
-        void this.saveAndRedraw();
-      });
-
-      (cat.children ?? []).forEach((child, j) => {
-        this.attrRow(grid, child, true);
-        grid.createDiv();
-        this.iconButton(grid, "trash", msg.remove, () => {
-          cat.children?.splice(j, 1);
-          void this.saveAndRedraw();
-        });
-      });
-    });
-
-    new Setting(containerEl).addButton((b) =>
-      b.setButtonText(msg.addAttribute).onClick(() => {
-        s.categories.push({ name: "", description: "", folder: "" });
-        void this.saveAndRedraw();
-      }),
-    );
-  }
-
-  private async saveAndRedraw() {
     await this.plugin.saveSettings();
-    this.display();
   }
 
-  private attrRow(grid: HTMLElement, cat: Category, child: boolean) {
-    const first = child ? grid.createDiv({ cls: "pigeonhole-child-cell" }) : grid.createDiv();
-    this.field(first, cat.name, msg.phName, (v) => (cat.name = v.trim()));
-    this.field(grid, cat.description, msg.phDesc, (v) => (cat.description = v));
-    this.field(grid, cat.folder, msg.phFolder, (v) => (cat.folder = v.trim()));
+  private page(cat: Category, key: string, withChildren: boolean): SettingDefinitionPage {
+    const items: SettingDefinitionItem[] = [
+      { name: msg.phName, control: { type: "text", key: `${key}.name` } },
+      { name: msg.phDesc, control: { type: "textarea", key: `${key}.description`, rows: 2 } },
+      { name: msg.phFolder, control: { type: "folder", key: `${key}.folder` } },
+    ];
+
+    if (withChildren) {
+      const children = cat.children ?? [];
+      items.push({
+        type: "list",
+        name: msg.children,
+        emptyState: msg.childrenEmpty,
+        addItem: {
+          name: msg.addChild,
+          action: () =>
+            this.mutate(() => {
+              if (!cat.children) cat.children = [];
+              cat.children.push(blank());
+            }),
+        },
+        onDelete: (index) => this.mutate(() => cat.children?.splice(index, 1)),
+        items: children.map((child, i) => this.page(child, `${key}.children.${i}`, false)),
+      });
+    }
+
+    return {
+      type: "page",
+      name: cat.name === "" ? msg.unnamed : cat.name,
+      displayValue: () => cat.folder,
+      items,
+    };
   }
 
-  private field(el: HTMLElement, value: string, placeholder: string, set: (v: string) => void) {
-    const input = el.createEl("input", { type: "text", value, placeholder });
-    input.addEventListener("input", async () => {
-      set(input.value);
-      await this.plugin.saveSettings();
+  private mutate(change: () => void) {
+    change();
+    void this.plugin.saveSettings().then(() => {
+      this.update();
     });
-  }
-
-  private iconButton(el: HTMLElement, icon: string, label: string, onClick: () => void) {
-    const button = el.createEl("button", {
-      cls: "clickable-icon",
-      attr: { "aria-label": label },
-    });
-    setIcon(button, icon);
-    button.addEventListener("click", onClick);
   }
 }

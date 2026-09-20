@@ -4,10 +4,12 @@ Classify your notes with [Jev](https://docs.typesafe.ai) and file them into fold
 
 ## Requirements
 
-- Obsidian 1.8.7 or later
+- Obsidian 1.13.0 or later
 - A TypeSafe API key
 
 ## Install
+
+Search for **Pigeonhole** in **Settings → Community plugins → Browse**, or open it in the [community plugin page](https://community.obsidian.md/plugins/pigeonhole). Install it and turn it on.
 
 ## Setup
 
@@ -51,16 +53,16 @@ The note is left where it is when the model is unsure, or when none of your attr
 ## Settings
 
 
-| Setting                                      | Default       |                                                                                                                 |
-| -------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
-| TypeSafe API key                             | (empty)       | Your API key.                                                                                                   |
-| Frontmatter property name                    | `category`    | The frontmatter key the attribute is written to.                                                                |
-| Frontmatter property name for sub-attributes | `subcategory` | The key the sub-attribute is written to. Leave it empty to skip writing it.                                     |
-| Confidence threshold                         | 0.6           | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                |
-| Excluded paths | (empty) | One folder or note per line. Never used as a destination; notes under them are skipped by the bulk commands and by classify on save. |
-| Characters of body text to send              | 4000          | How much of the note body is sent.                                                                              |
-| Create the target folder if missing          | off           | When off, a note whose target folder does not exist is reported as an error instead of being moved.             |
-| Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched. |
+| Setting                                      | Default       |                                                                                                                                      |
+| -------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| TypeSafe API key                             | (empty)       | Your API key.                                                                                                                        |
+| Frontmatter property name                    | `category`    | The frontmatter key the attribute is written to.                                                                                     |
+| Frontmatter property name for sub-attributes | `subcategory` | The key the sub-attribute is written to. Leave it empty to skip writing it.                                                          |
+| Confidence threshold                         | 0.6           | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                                     |
+| Excluded paths                               | (empty)       | One folder or note per line. Never used as a destination; notes under them are skipped by the bulk commands and by classify on save. |
+| Characters of body text to send              | 4000          | How much of the note body is sent.                                                                                                   |
+| Create the target folder if missing          | off           | When off, a note whose target folder does not exist is reported as an error instead of being moved.                                  |
+| Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched.                      |
 
 
 ## License
@@ -75,10 +77,16 @@ MIT
 
 ## 動作環境
 
-- Obsidian 1.8.7 以降
+- Obsidian 1.13.0 以降
 - TypeSafe の API キー
 
 ## インストール
+
+- [コミュニティプラグインのプロジェクトページ](https://community.obsidian.md/plugins/pigeonhole)からインストール
+
+もしくは
+
+- Obsidian の **設定 → コミュニティプラグイン → 閲覧** で「Pigeonhole」を検索する。
 
 ## 初期設定
 
@@ -120,16 +128,16 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 ## 設定
 
 
-| 設定                     | 既定値           |                                           |
-| ---------------------- | ------------- | ----------------------------------------- |
-| TypeSafe API キー        | （空）           | API キー。                                   |
-| frontmatter プロパティ名     | `category`    | 属性を書き込む frontmatter のキー。                  |
-| frontmatter サブ属性プロパティ名 | `subcategory` | 子属性を書き込むキー。空にすると書き込まない。                   |
-| confidence の下限         | 0.6           | これを下回ると移動しない。誤った振り分けが多いときは上げる。            |
-| 除外パス | （空） | 1行に1つ。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になる。 |
-| 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                              |
-| 移動先フォルダが無ければ作成         | OFF           | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。 |
-| 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。         |
+| 設定                     | 既定値           |                                                 |
+| ---------------------- | ------------- | ----------------------------------------------- |
+| TypeSafe API キー        | （空）           | API キー。                                         |
+| frontmatter プロパティ名     | `category`    | 属性を書き込む frontmatter のキー。                        |
+| frontmatter サブ属性プロパティ名 | `subcategory` | 子属性を書き込むキー。空にすると書き込まない。                         |
+| confidence の下限         | 0.6           | これを下回ると移動しない。誤った振り分けが多いときは上げる。                  |
+| 除外パス                   | （空）           | 1行に1つ。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になる。 |
+| 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                                    |
+| 移動先フォルダが無ければ作成         | OFF           | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。       |
+| 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。               |
 
 
 ## ライセンス

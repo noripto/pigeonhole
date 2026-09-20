@@ -54,14 +54,15 @@ const en = {
   attributes: "Attributes",
   attributesHint:
     "The folders already in your vault are always candidates, so this list is optional. Add an attribute when you want to describe it in your own words, or to file notes into a folder that does not exist yet. The description is what the model judges against. Leave the folder empty to set the property without moving the file. Give an attribute sub-attributes to classify in two steps; a sub-attribute's folder is relative to its parent's, and an empty one means the parent's folder itself.",
-  colName: "Name",
-  colDesc: "Description",
-  colFolder: "Target folder",
   phName: "Name",
   phDesc: "Description (what kind of note)",
   phFolder: "Target folder",
   addAttribute: "Add attribute",
   addChild: "Add sub-attribute",
+  attributesEmpty: "No attributes. The folders in your vault are used as they are.",
+  children: "Sub-attributes",
+  childrenEmpty: "No sub-attributes.",
+  unnamed: "(unnamed)",
   remove: "Remove",
 };
 
@@ -117,14 +118,15 @@ const ja: typeof en = {
   attributes: "属性",
   attributesHint:
     "Vault にあるフォルダは常に候補になるので、この一覧は任意です。自分の言葉で説明を付けたいとき、またはまだ存在しないフォルダへ振り分けたいときに登録します。説明文が判定の手がかりになります。移動先を空にすると属性の付与だけ行います。子属性を追加すると2段階で判定します。子属性の移動先は親からの相対パスで、空のときは親の移動先そのものになります。",
-  colName: "属性名",
-  colDesc: "説明",
-  colFolder: "移動先フォルダ",
   phName: "属性名",
   phDesc: "説明（どんなノートか）",
   phFolder: "移動先フォルダ",
   addAttribute: "属性を追加",
   addChild: "子属性を追加",
+  attributesEmpty: "属性はありません。Vault のフォルダがそのまま候補になります。",
+  children: "子属性",
+  childrenEmpty: "子属性はありません。",
+  unnamed: "（名前未設定）",
   remove: "削除",
 };
 
