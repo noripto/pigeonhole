@@ -9,12 +9,10 @@ Classify your notes with [Jev](https://docs.typesafe.ai) and file them into fold
 
 ## Install
 
-
-
 ## Setup
 
 1. Get an API key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
-2. Open **Settings -&gt; Pigeonhole** and paste it into **TypeSafe API key**.
+2. Open **Settings → Pigeonhole** and paste it into **TypeSafe API key**.
 3. At the bottom of the same screen, press **Add attribute**. Each attribute takes three fields:
 
 
@@ -26,6 +24,8 @@ Classify your notes with [Jev](https://docs.typesafe.ai) and file them into fold
 
 
 Add as many attributes as you need. Two or three is enough to start.
+
+To sort more finely, press the **+** button on an attribute to give it sub-attributes. Pigeonhole then asks twice: first which attribute the note matches, then which of that attribute's sub-attributes fits. A sub-attribute's target folder is relative to its parent's, so `review` under `game` means `game/review`. Leave it empty to use the parent's folder itself.
 
 ## Usage
 
@@ -39,28 +39,23 @@ Run one of these from the command palette:
 | Classify unclassified notes in the vault   | Classifies every unclassified note in the vault.                                  |
 
 
-For each note, Pigeonhole picks one attribute, writes it to frontmatter as `category: meeting`, and moves the file into that attribute's folder. Links to the note are updated by Obsidian, so nothing breaks.
+For each note, Pigeonhole picks one attribute, writes it to frontmatter as `category: meeting`, and moves the file into that attribute's folder. If the attribute has sub-attributes, the chosen one is written as `subcategory: retro` and its folder is used instead. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
 
-The note is left where it is when the model is unsure, or when none of your attributes fit. A notice tells you why. Notes that already have the property are treated as classified and are skipped by the two bulk commands.
+The note is left where it is when the model is unsure, or when none of your attributes fit. A notice tells you why. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands.
 
 ## Settings
 
 
-| Setting                             | Default    |                                                                                                                 |
-| ----------------------------------- | ---------- | --------------------------------------------------------------------------------------------------------------- |
-| TypeSafe API key                    | (empty)    | Your API key.                                                                                                   |
-| Frontmatter property name           | `category` | The frontmatter key the attribute is written to.                                                                |
-| Confidence threshold                | 0.6        | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                |
-| Characters of body text to send     | 4000       | How much of the note body is sent.                                                                              |
-| Create the target folder if missing | off        | When off, a note whose target folder does not exist is reported as an error instead of being moved.             |
-| Classify on save                    | off        | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched. |
+| Setting                                      | Default       |                                                                                                                 |
+| -------------------------------------------- | ------------- | --------------------------------------------------------------------------------------------------------------- |
+| TypeSafe API key                             | (empty)       | Your API key.                                                                                                   |
+| Frontmatter property name                    | `category`    | The frontmatter key the attribute is written to.                                                                |
+| Frontmatter property name for sub-attributes | `subcategory` | The key the sub-attribute is written to. Leave it empty to skip writing it.                                     |
+| Confidence threshold                         | 0.6           | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                |
+| Characters of body text to send              | 4000          | How much of the note body is sent.                                                                              |
+| Create the target folder if missing          | off           | When off, a note whose target folder does not exist is reported as an error instead of being moved.             |
+| Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched. |
 
-
-## Notes
-
-- The interface is in English or Japanese, following Obsidian's language setting.
-- The title and the first 4000 characters of each note are sent to the TypeSafe API.
-- Your API key is stored as plain text in this plugin's `data.json`. Keep that in mind if you sync or share your vault.
 
 ## License
 
@@ -79,8 +74,6 @@ MIT
 
 ## インストール
 
-
-
 ## 初期設定
 
 1. [console.typesafe.ai/keys](https://console.typesafe.ai/keys) で API キーを取得する。
@@ -97,6 +90,8 @@ MIT
 
 属性はいくつでも登録できる。まずは2〜3件あれば足りる。
 
+さらに細かく分けたい場合は、属性の行にある **+** ボタンで子属性を追加する。判定は2段階になり、まずどの属性に当たるかを選び、次にその属性の子属性のどれに当たるかを選ぶ。子属性の移動先は親からの相対パスで、`game` の下の `review` は `game/review` になる。空にすると親の移動先そのものを使う。
+
 ## 使い方
 
 コマンドパレットから次のいずれかを実行する。
@@ -109,26 +104,24 @@ MIT
 | Vault 全体の未分類ノートを分類 | Vault 内の未分類ノートをすべて分類する。       |
 
 
-各ノートについて属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、その属性のフォルダへ移動する。ノートへのリンクは Obsidian が追従するので壊れない。
+各ノートについて属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、その属性のフォルダへ移動する。子属性がある場合は `subcategory: retro` も書き込み、移動先は子属性のフォルダになる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
 
-モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は通知に表示される。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。
+モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は通知に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。
 
 ## 設定
 
 
-| 設定                 | 既定値        |                                           |
-| ------------------ | ---------- | ----------------------------------------- |
-| TypeSafe API キー    | （空）        | API キー。                                   |
-| frontmatter プロパティ名 | `category` | 属性を書き込む frontmatter のキー。                  |
-| confidence の下限     | 0.6        | これを下回ると移動しない。誤った振り分けが多いときは上げる。            |
-| 送信する本文の文字数上限       | 4000       | 本文を何文字まで送るか。                              |
-| 移動先フォルダが無ければ作成     | OFF        | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。 |
-| 保存時に自動分類           | OFF        | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。         |
+| 設定                     | 既定値           |                                           |
+| ---------------------- | ------------- | ----------------------------------------- |
+| TypeSafe API キー        | （空）           | API キー。                                   |
+| frontmatter プロパティ名     | `category`    | 属性を書き込む frontmatter のキー。                  |
+| frontmatter サブ属性プロパティ名 | `subcategory` | 子属性を書き込むキー。空にすると書き込まない。                   |
+| confidence の下限         | 0.6           | これを下回ると移動しない。誤った振り分けが多いときは上げる。            |
+| 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                              |
+| 移動先フォルダが無ければ作成         | OFF           | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。 |
+| 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。         |
 
 
-## 注意
+## ライセンス
 
-- 表示言語は Obsidian の言語設定に従って日本語と英語が切り替わる。
-- ノートのタイトルと本文の先頭4000文字が TypeSafe の API に送信される。
-- API キーはこのプラグインの `data.json` に平文で保存される。Vault を同期・共有している場合は注意すること。
-
+MIT

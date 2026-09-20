@@ -1,6 +1,11 @@
 export const OTHER = "__other__";
 
-export type Category = { name: string; description: string; folder: string };
+export type Category = {
+  name: string;
+  description: string;
+  folder: string;
+  children?: Category[];
+};
 
 export type ChoiceAnswer = {
   type?: string;
@@ -24,19 +29,25 @@ export function buildRequest(
   title: string,
   cats: Category[],
   maxChars: number,
+  parent?: Category,
 ): object {
   const criteria: Record<string, string> = {};
   for (const c of cats) criteria[c.name] = c.description || c.name;
-  criteria[OTHER] = "None of the above attributes fit this note.";
+  criteria[OTHER] = parent
+    ? `None of the sub-attributes of ${parent.name} fit this note.`
+    : "None of the above attributes fit this note.";
 
   return {
-    state: { title, content: content.slice(0, maxChars) },
+    state: parent
+      ? { title, content: content.slice(0, maxChars), attribute: parent.description || parent.name }
+      : { title, content: content.slice(0, maxChars) },
     model: "jev-latest",
     questions: {
       category: {
         type: "choice",
-        instructions:
-          "Which attribute best describes this note? Judge the note as a whole, using `title` and `content`.",
+        instructions: parent
+          ? "This note already matches the attribute described in `attribute`. Which of the following narrower attributes best describes it?"
+          : "Which attribute best describes this note? Judge the note as a whole, using `title` and `content`.",
         criteria,
       },
     },

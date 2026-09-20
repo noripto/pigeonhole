@@ -1,13 +1,13 @@
 {
   "name": "pigeonhole",
-  "version": "0.1.0",
+  "version": "0.2.0",
   "private": true,
   "license": "MIT",
   "type": "module",
   "scripts": {
     "dev": "vite build --watch",
     "build": "tsc --noEmit && vite build",
-    "fmt": "oxfmt .",
+    "fmt": "oxfmt . \"!**/*.md\"",
     "lint": "oxlint"
   },
   "devDependencies": {
