@@ -20,6 +20,8 @@ That is the whole setup.
 
 The folders already in your vault are the candidates, so a note about work goes to `work/`, and one about a project goes to `work/that-project/`.
 
+A fresh install starts with three example attributes (`meeting`, `idea`, `reference`). Edit them, or delete them and let your own folders do the work.
+
 Attributes are optional. Add one when you want to describe a category in your own words, or to file notes into a folder that does not exist yet. Press **Add attribute** at the bottom of the settings screen; each attribute takes three fields:
 
 
@@ -36,7 +38,7 @@ To sort more finely, press the **+** button on an attribute to give it sub-attri
 
 ## Usage
 
-Run one of these from the command palette:
+Right-click a note or a folder in the file explorer and pick **Pigeonhole**, or run one of these from the command palette:
 
 
 | Command                                    | What it does                                                                      |
@@ -61,7 +63,7 @@ The note is left where it is when the model is unsure, or when none of your attr
 | Confidence threshold                         | 0.6           | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                                     |
 | Excluded paths                               | (empty)       | One folder or note per line. Never used as a destination; notes under them are skipped by the bulk commands and by classify on save. |
 | Characters of body text to send              | 4000          | How much of the note body is sent.                                                                                                   |
-| Create the target folder if missing          | off           | When off, a note whose target folder does not exist is reported as an error instead of being moved.                                  |
+| Create the target folder if missing          | on            | When off, a note whose target folder does not exist is reported as an error instead of being moved.                                  |
 | Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched.                      |
 
 
@@ -95,6 +97,8 @@ MIT
 
 Vault にあるフォルダがそのまま候補になるので、仕事のノートは `work/` へ、特定案件のノートは `work/その案件/` へ入る。
 
+初回は例として属性が3件（`meeting` / `idea` / `reference`）入っている。書き換えて使ってもいいし、消して既存フォルダに任せてもいい。
+
 属性の登録は任意。自分の言葉で分類を説明したいとき、またはまだ存在しないフォルダへ振り分けたいときに使う。設定画面の下にある **属性を追加** を押すと、1件につき3つの項目がある。
 
 
@@ -111,7 +115,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 
 ## 使い方
 
-コマンドパレットから次のいずれかを実行する。
+ファイルエクスプローラーでノートやフォルダを右クリックして **Pigeonhole** を選ぶか、コマンドパレットから次のいずれかを実行する。
 
 
 | コマンド               | 動作                            |
@@ -136,7 +140,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | confidence の下限         | 0.6           | これを下回ると移動しない。誤った振り分けが多いときは上げる。                  |
 | 除外パス                   | （空）           | 1行に1つ。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になる。 |
 | 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                                    |
-| 移動先フォルダが無ければ作成         | OFF           | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。       |
+| 移動先フォルダが無ければ作成         | ON            | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。       |
 | 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。               |
 
 
