@@ -25,6 +25,9 @@ const API_URL = "https://api.typesafe.ai/v1/systemone";
 
 const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
 
+const joinFolder = (parent: string, child: string) =>
+  parent === "" || child === "" ? parent || child : `${parent}/${child}`;
+
 type PigeonholeSettings = {
   apiKey: string;
   categories: Category[];
@@ -107,7 +110,14 @@ export default class PigeonholePlugin extends Plugin {
 
   private isClassified(file: TFile): boolean {
     const fm = this.app.metadataCache.getFileCache(file)?.frontmatter;
-    return fm?.[this.settings.propertyName] != null;
+    if (!fm) return false;
+
+    const name = fm[this.settings.propertyName];
+    if (name == null) return false;
+
+    const category = named(this.settings.categories).find((c) => c.name === name);
+    if (!category || named(category.children ?? []).length === 0) return true;
+    return !this.settings.subPropertyName || fm[this.settings.subPropertyName] != null;
   }
 
   private unclassifiedIn(folder: TFolder): TFile[] {
@@ -158,7 +168,9 @@ export default class PigeonholePlugin extends Plugin {
           if (result.action === "move") moved++;
           else {
             skipped++;
-            if (single) new Notice(`Pigeonhole: ${msg.notMoved(msg.skip(result.reason))}`);
+            const text = msg.notMoved(msg.skip(result.reason));
+            if (single) new Notice(`Pigeonhole: ${text}`);
+            else console.log("Pigeonhole:", files[i].path, text);
           }
         } catch (e) {
           failed++;
@@ -219,19 +231,13 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private async apply(file: TFile, category: Category, sub?: Category) {
-    const destination = sub?.folder || category.folder;
+    const destination = sub ? joinFolder(category.folder, sub.folder) : category.folder;
     const folder = normalizePath(destination);
     const move = destination !== "" && folder !== "." && folder !== "/";
-    const target = normalizePath(`${folder}/${file.name}`);
     const missingFolder = move && !this.app.vault.getAbstractFileByPath(folder);
 
-    if (move && target !== file.path) {
-      if (this.app.vault.getAbstractFileByPath(target)) {
-        throw new Error(msg.errConflict(target));
-      }
-      if (missingFolder && !this.settings.createMissingFolder) {
-        throw new Error(msg.errMissingFolder(folder));
-      }
+    if (missingFolder && !this.settings.createMissingFolder) {
+      throw new Error(msg.errMissingFolder(folder));
     }
 
     await this.app.fileManager.processFrontMatter(file, (fm) => {
@@ -241,9 +247,27 @@ export default class PigeonholePlugin extends Plugin {
       else delete fm[this.settings.subPropertyName];
     });
 
-    if (!move || target === file.path) return;
-    if (missingFolder) await this.app.vault.createFolder(folder);
-    await this.app.fileManager.renameFile(file, target);
+    if (!move || file.parent?.path === folder) return;
+    if (missingFolder) await this.createFolder(folder);
+    await this.app.fileManager.renameFile(file, this.freeName(folder, file));
+  }
+
+  private async createFolder(folder: string) {
+    let path = "";
+    for (const part of folder.split("/")) {
+      path = path === "" ? part : `${path}/${part}`;
+      if (!this.app.vault.getAbstractFileByPath(path)) {
+        await this.app.vault.createFolder(path);
+      }
+    }
+  }
+
+  private freeName(folder: string, file: TFile): string {
+    let path = normalizePath(`${folder}/${file.name}`);
+    for (let n = 1; this.app.vault.getAbstractFileByPath(path); n++) {
+      path = normalizePath(`${folder}/${file.basename} ${n}.${file.extension}`);
+    }
+    return path;
   }
 }
 

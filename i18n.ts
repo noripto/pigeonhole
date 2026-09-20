@@ -16,7 +16,6 @@ const en = {
   summary: (moved: number, skipped: number, failed: number) =>
     `moved ${moved} / skipped ${skipped} / failed ${failed}`,
 
-  errConflict: (target: string) => `${target} already exists, so nothing was moved`,
   errMissingFolder: (folder: string) =>
     `The folder ${folder} does not exist (automatic creation can be enabled in the settings)`,
   errNotJson: "The API response was not JSON",
@@ -50,7 +49,7 @@ const en = {
 
   attributes: "Attributes",
   attributesHint:
-    "The description is what the model judges against. Leave the folder empty to set the property without moving the file. Give an attribute sub-attributes to classify in two steps; a sub-attribute with an empty folder uses its parent's folder.",
+    "The description is what the model judges against. Leave the folder empty to set the property without moving the file. Give an attribute sub-attributes to classify in two steps. A sub-attribute's folder is relative to its parent's folder, and an empty one means the parent's folder itself.",
   colName: "Name",
   colDesc: "Description",
   colFolder: "Target folder",
@@ -77,7 +76,6 @@ const ja: typeof en = {
   summary: (moved: number, skipped: number, failed: number) =>
     `移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`,
 
-  errConflict: (target: string) => `${target} に同名ファイルがあるため中止しました`,
   errMissingFolder: (folder: string) =>
     `フォルダ ${folder} がありません（設定で自動作成を有効にできます）`,
   errNotJson: "API レスポンスが JSON ではありません",
@@ -110,7 +108,7 @@ const ja: typeof en = {
 
   attributes: "属性",
   attributesHint:
-    "説明文が判定の手がかりになります。移動先を空にすると属性の付与だけ行います。子属性を追加すると2段階で判定します。子属性の移動先が空のときは親の移動先を使います。",
+    "説明文が判定の手がかりになります。移動先を空にすると属性の付与だけ行います。子属性を追加すると2段階で判定します。子属性の移動先は親からの相対パスで、空のときは親の移動先そのものになります。",
   colName: "属性名",
   colDesc: "説明",
   colFolder: "移動先フォルダ",
