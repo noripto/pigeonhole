@@ -44,7 +44,7 @@ Run one of these from the command palette:
 | Classify unclassified notes in the vault   | Classifies every unclassified note in the vault.                                  |
 
 
-For each note, Pigeonhole picks one folder or attribute, writes it to frontmatter as `category: meeting`, and moves the file there. If the attribute has sub-attributes, the chosen one is written as `subcategory: retro` and its folder is used instead. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
+For each note, Pigeonhole picks one folder or attribute, writes it to frontmatter as `category: meeting`, and moves the file there. A nested destination is split across the two properties, so `work/beacon` is written as `category: work` and `subcategory: beacon`. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
 
 The note is left where it is when the model is unsure, or when none of your attributes fit. A notice tells you why. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands.
 
@@ -112,7 +112,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | Vault 全体の未分類ノートを分類 | Vault 内の未分類ノートをすべて分類する。       |
 
 
-各ノートについてフォルダまたは属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、そこへ移動する。子属性がある場合は `subcategory: retro` も書き込み、移動先は子属性のフォルダになる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
+各ノートについてフォルダまたは属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、そこへ移動する。階層のある移動先は2つのプロパティに分けて書かれる。`work/beacon` なら `category: work` と `subcategory: beacon` になる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
 
 モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は通知に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。
 

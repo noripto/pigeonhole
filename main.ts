@@ -259,10 +259,13 @@ export default class PigeonholePlugin extends Plugin {
       throw new Error(msg.errMissingFolder(folder));
     }
 
+    const [head, ...rest] = category.name.split("/");
+    const subName = sub ? sub.name : rest.join("/");
+
     await this.app.fileManager.processFrontMatter(file, (fm) => {
-      fm[this.settings.propertyName] = category.name;
+      fm[this.settings.propertyName] = head;
       if (!this.settings.subPropertyName) return;
-      if (sub) fm[this.settings.subPropertyName] = sub.name;
+      if (subName !== "") fm[this.settings.subPropertyName] = subName;
       else delete fm[this.settings.subPropertyName];
     });
 
