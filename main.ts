@@ -1,8 +1,11 @@
 import {
   App,
+  Menu,
   Notice,
   Plugin,
   PluginSettingTab,
+  Setting,
+  SettingPage,
   TFile,
   TFolder,
   Vault,
@@ -26,6 +29,25 @@ const API_URL = "https://api.typesafe.ai/v1/systemone";
 const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
 
 const blank = (): Category => ({ name: "", description: "", folder: "" });
+
+const DEFAULT_CATEGORIES: Category[] = [
+  {
+    name: "meeting",
+    description:
+      "Notes from a meeting or call: who was there, what was decided, what happens next.",
+    folder: "meeting",
+  },
+  {
+    name: "idea",
+    description: "A thought worth keeping: something half-formed, not yet a plan.",
+    folder: "idea",
+  },
+  {
+    name: "reference",
+    description: "Material to look up later: steps, specs, findings, collected links.",
+    folder: "reference",
+  },
+];
 
 const joinFolder = (parent: string, child: string) =>
   parent === "" || child === "" ? parent || child : `${parent}/${child}`;
@@ -51,7 +73,7 @@ const DEFAULT_SETTINGS: PigeonholeSettings = {
   maxChars: 4000,
   excludePaths: [],
   autoOnSave: false,
-  createMissingFolder: false,
+  createMissingFolder: true,
 };
 
 export default class PigeonholePlugin extends Plugin {
@@ -64,6 +86,11 @@ export default class PigeonholePlugin extends Plugin {
   async onload() {
     const saved = (await this.loadData()) as Partial<PigeonholeSettings> | null;
     this.settings = Object.assign({}, DEFAULT_SETTINGS, saved);
+    if (saved === null) {
+      this.settings.categories = DEFAULT_CATEGORIES;
+      await this.saveSettings();
+      new Notice(`Pigeonhole: ${msg.defaultsAdded}`);
+    }
     this.addSettingTab(new PigeonholeSettingTab(this.app, this));
 
     this.addCommand({
@@ -99,6 +126,16 @@ export default class PigeonholePlugin extends Plugin {
     });
 
     this.registerEvent(
+      this.app.workspace.on("file-menu", (menu, file) => {
+        if (file instanceof TFolder) {
+          this.addMenuItem(menu, msg.cmdFolder, () => this.unclassifiedIn(file));
+        } else if (file instanceof TFile && file.extension === "md") {
+          this.addMenuItem(menu, msg.cmdNote, () => [file]);
+        }
+      }),
+    );
+
+    this.registerEvent(
       this.app.vault.on("modify", (f) => {
         if (!this.settings.autoOnSave) return;
         if (
@@ -111,6 +148,15 @@ export default class PigeonholePlugin extends Plugin {
           this.flushPending();
         }
       }),
+    );
+  }
+
+  private addMenuItem(menu: Menu, title: string, files: () => TFile[]) {
+    menu.addItem((item) =>
+      item
+        .setTitle(`Pigeonhole: ${title}`)
+        .setIcon("inbox")
+        .onClick(() => void this.run(files())),
     );
   }
 
@@ -182,7 +228,8 @@ export default class PigeonholePlugin extends Plugin {
       new Notice(`Pigeonhole: ${msg.noApiKey}`);
       return;
     }
-    if (this.candidates().length === 0) {
+    const categories = this.candidates();
+    if (categories.length === 0) {
       new Notice(`Pigeonhole: ${msg.noCategories}`);
       return;
     }
@@ -193,6 +240,10 @@ export default class PigeonholePlugin extends Plugin {
 
     const single = files.length === 1;
     const notice = new Notice(`Pigeonhole: ${msg.working}`, 0);
+    console.log(
+      `Pigeonhole: ${files.length} notes, ${categories.length} candidates:`,
+      categories.map((c) => c.name).join(", "),
+    );
     let moved = 0;
     let skipped = 0;
     let failed = 0;
@@ -201,13 +252,17 @@ export default class PigeonholePlugin extends Plugin {
       for (let i = 0; i < files.length; i++) {
         if (!single) notice.setMessage(`Pigeonhole: ${i + 1}/${files.length} ${files[i].basename}`);
         try {
-          const result = await this.classifyFile(files[i]);
-          if (result.action === "move") moved++;
-          else {
+          const result = await this.classifyFile(files[i], categories);
+          if (result.action === "move") {
+            moved++;
+            console.log(
+              `Pigeonhole: ${files[i].path} -> ${result.category.name} (${result.confidence.toFixed(2)})`,
+            );
+          } else {
             skipped++;
             const text = msg.notMoved(msg.skip(result.reason));
+            console.log(`Pigeonhole: ${files[i].path} ${text}`);
             if (single) new Notice(`Pigeonhole: ${text}`);
-            else console.log("Pigeonhole:", files[i].path, text);
           }
         } catch (e) {
           failed++;
@@ -246,10 +301,9 @@ export default class PigeonholePlugin extends Plugin {
     return payload?.answers?.category;
   }
 
-  async classifyFile(file: TFile): Promise<Decision> {
+  async classifyFile(file: TFile, categories: Category[]): Promise<Decision> {
     const content = await this.app.vault.cachedRead(file);
     const { maxChars, confidenceThreshold } = this.settings;
-    const categories = this.candidates();
 
     const answer = await this.ask(buildRequest(content, file.basename, categories, maxChars));
     const decision = decide(answer, categories, confidenceThreshold);
@@ -375,7 +429,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
           action: () => this.mutate(() => s.categories.push(blank())),
         },
         onDelete: (index) => this.mutate(() => s.categories.splice(index, 1)),
-        items: s.categories.map((cat, i) => this.page(cat, `categories.${i}`, true)),
+        items: s.categories.map((cat) => this.page(cat)),
       },
     ];
   }
@@ -400,44 +454,103 @@ class PigeonholeSettingTab extends PluginSettingTab {
     await this.plugin.saveSettings();
   }
 
-  private page(cat: Category, key: string, withChildren: boolean): SettingDefinitionPage {
-    const items: SettingDefinitionItem[] = [
-      { name: msg.phName, control: { type: "text", key: `${key}.name` } },
-      { name: msg.phDesc, control: { type: "textarea", key: `${key}.description`, rows: 2 } },
-      { name: msg.phFolder, control: { type: "folder", key: `${key}.folder` } },
-    ];
-
-    if (withChildren) {
-      const children = cat.children ?? [];
-      items.push({
-        type: "list",
-        name: msg.children,
-        emptyState: msg.childrenEmpty,
-        addItem: {
-          name: msg.addChild,
-          action: () =>
-            this.mutate(() => {
-              if (!cat.children) cat.children = [];
-              cat.children.push(blank());
-            }),
-        },
-        onDelete: (index) => this.mutate(() => cat.children?.splice(index, 1)),
-        items: children.map((child, i) => this.page(child, `${key}.children.${i}`, false)),
-      });
-    }
-
+  private page(cat: Category): SettingDefinitionPage {
     return {
       type: "page",
       name: cat.name === "" ? msg.unnamed : cat.name,
       displayValue: () => cat.folder,
-      items,
+      page: () => new AttributePage(this, cat),
     };
   }
 
   private mutate(change: () => void) {
     change();
-    void this.plugin.saveSettings().then(() => {
-      this.update();
+    this.update();
+    void this.plugin.saveSettings();
+  }
+}
+
+class AttributePage extends SettingPage {
+  tab: PigeonholeSettingTab;
+  cat: Category;
+
+  constructor(tab: PigeonholeSettingTab, cat: Category) {
+    super();
+    this.tab = tab;
+    this.cat = cat;
+    this.title = cat.name === "" ? msg.unnamed : cat.name;
+  }
+
+  display(): void {
+    const el = this.containerEl;
+    el.empty();
+    this.fields(el, this.cat);
+
+    new Setting(el)
+      .setName(msg.children)
+      .setHeading()
+      .addButton((b) =>
+        b.setButtonText(msg.addChild).onClick(() => {
+          if (!this.cat.children) this.cat.children = [];
+          this.cat.children.push(blank());
+          this.save();
+        }),
+      );
+
+    const children = this.cat.children ?? [];
+    if (children.length === 0) {
+      el.createEl("p", { text: msg.childrenEmpty, cls: "setting-item-description" });
+      return;
+    }
+
+    children.forEach((child, index) => {
+      new Setting(el)
+        .setName(child.name === "" ? msg.unnamed : child.name)
+        .setHeading()
+        .addExtraButton((b) =>
+          b
+            .setIcon("trash")
+            .setTooltip(msg.remove)
+            .onClick(() => {
+              this.cat.children?.splice(index, 1);
+              this.save();
+            }),
+        );
+      this.fields(el, child);
     });
+  }
+
+  private fields(el: HTMLElement, cat: Category) {
+    new Setting(el).setName(msg.phName).addText((t) =>
+      t.setValue(cat.name).onChange((v) => {
+        cat.name = v.trim();
+        this.persist();
+      }),
+    );
+    new Setting(el).setName(msg.phDesc).addTextArea((t) =>
+      t.setValue(cat.description).onChange((v) => {
+        cat.description = v;
+        this.persist();
+      }),
+    );
+    new Setting(el).setName(msg.phFolder).addText((t) =>
+      t.setValue(cat.folder).onChange((v) => {
+        cat.folder = v.trim();
+        this.persist();
+      }),
+    );
+  }
+
+  private persist() {
+    void this.tab.plugin.saveSettings();
+  }
+
+  private save() {
+    this.persist();
+    this.display();
+  }
+
+  hide(): void {
+    this.tab.update();
   }
 }
