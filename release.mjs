@@ -28,17 +28,4 @@ git("commit", "-m", `Release ${version}`);
 git("tag", version);
 git("push", "origin", "main", version);
 
-execFileSync(
-  "gh",
-  [
-    "release",
-    "create",
-    version,
-    "main.js",
-    "manifest.json",
-    "--title",
-    version,
-    "--generate-notes",
-  ],
-  { stdio: "inherit", shell: true },
-);
+console.log(`pushed ${version}. The release workflow builds, attests and publishes it.`);
