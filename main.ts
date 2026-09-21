@@ -240,10 +240,6 @@ export default class PigeonholePlugin extends Plugin {
 
     const single = files.length === 1;
     const notice = new Notice(`Pigeonhole: ${msg.working}`, 0);
-    console.log(
-      `Pigeonhole: ${files.length} notes, ${categories.length} candidates:`,
-      categories.map((c) => c.name).join(", "),
-    );
     let moved = 0;
     let skipped = 0;
     let failed = 0;
@@ -253,16 +249,10 @@ export default class PigeonholePlugin extends Plugin {
         if (!single) notice.setMessage(`Pigeonhole: ${i + 1}/${files.length} ${files[i].basename}`);
         try {
           const result = await this.classifyFile(files[i], categories);
-          if (result.action === "move") {
-            moved++;
-            console.log(
-              `Pigeonhole: ${files[i].path} -> ${result.category.name} (${result.confidence.toFixed(2)})`,
-            );
-          } else {
+          if (result.action === "move") moved++;
+          else {
             skipped++;
-            const text = msg.notMoved(msg.skip(result.reason));
-            console.log(`Pigeonhole: ${files[i].path} ${text}`);
-            if (single) new Notice(`Pigeonhole: ${text}`);
+            if (single) new Notice(`Pigeonhole: ${msg.notMoved(msg.skip(result.reason))}`);
           }
         } catch (e) {
           failed++;
@@ -448,7 +438,7 @@ class PigeonholeSettingTab extends PluginSettingTab {
         .filter((line) => line !== "" && line !== "." && line !== "/");
     } else {
       const next = typeof value === "string" && !key.endsWith("description") ? value.trim() : value;
-      assign(s as unknown as Record<string, unknown>, key, next);
+      assign(s, key, next);
       if (s.propertyName === "") s.propertyName = DEFAULT_SETTINGS.propertyName;
     }
     await this.plugin.saveSettings();

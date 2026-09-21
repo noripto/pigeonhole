@@ -21,7 +21,7 @@ export type SkipReason =
   | { code: "unknownLabel"; label: string };
 
 export type Decision =
-  | { action: "move"; category: Category; confidence: number }
+  | { action: "move"; category: Category }
   | { action: "skip"; reason: SkipReason };
 
 export function buildRequest(
@@ -78,7 +78,7 @@ export function decide(
   if (!category) {
     return { action: "skip", reason: { code: "unknownLabel", label: answer.choice } };
   }
-  return { action: "move", category, confidence };
+  return { action: "move", category };
 }
 
 function top2(probabilities?: Record<string, number>): string {
