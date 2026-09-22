@@ -1,5 +1,7 @@
 # Pigeonhole
 
+[日本語](#pigeonhole日本語)
+
 Classify your notes with [Jev](https://docs.typesafe.ai) and file them into folders by attribute.
 
 ## Requirements
@@ -74,6 +76,8 @@ MIT
 ---
 
 # Pigeonhole（日本語）
+
+[English](#pigeonhole)
 
 ノートを [Jev](https://docs.typesafe.ai) で分類し、属性ごとのフォルダへ振り分ける Obsidian プラグイン。
 
