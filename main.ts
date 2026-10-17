@@ -226,6 +226,10 @@ export default class PigeonholePlugin extends Plugin {
     );
   }
 
+  onunload() {
+    this.flushPending.cancel();
+  }
+
   private addMenuItem(menu: Menu, title: string, mode: Mode, files: () => TFile[]) {
     menu.addItem((item) =>
       item
