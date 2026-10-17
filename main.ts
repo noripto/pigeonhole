@@ -65,6 +65,7 @@ type PigeonholeSettings = {
   maxChars: number;
   excludePaths: string[];
   autoOnSave: boolean;
+  reclassify: boolean;
   createMissingFolder: boolean;
 };
 
@@ -76,6 +77,7 @@ const DEFAULT_SETTINGS: PigeonholeSettings = {
   maxChars: 4000,
   excludePaths: [],
   autoOnSave: false,
+  reclassify: false,
   createMissingFolder: true,
 };
 
@@ -128,7 +130,7 @@ export default class PigeonholePlugin extends Plugin {
           new Notice(`Pigeonhole: ${msg.noFolder}`);
           return;
         }
-        void this.run(this.unclassifiedIn(parent), "bulk");
+        void this.run(this.targetsIn(parent), "bulk");
       },
     });
 
@@ -141,13 +143,13 @@ export default class PigeonholePlugin extends Plugin {
     this.addCommand({
       id: "classify-vault",
       name: msg.cmdVault,
-      callback: () => void this.run(this.unclassifiedIn(this.app.vault.getRoot()), "bulk"),
+      callback: () => void this.run(this.targetsIn(this.app.vault.getRoot()), "bulk"),
     });
 
     this.registerEvent(
       this.app.workspace.on("file-menu", (menu, file) => {
         if (file instanceof TFolder) {
-          this.addMenuItem(menu, msg.cmdFolder, "bulk", () => this.unclassifiedIn(file));
+          this.addMenuItem(menu, msg.cmdFolder, "bulk", () => this.targetsIn(file));
         } else if (file instanceof TFile && file.extension === "md") {
           this.addMenuItem(menu, msg.cmdNote, "single", () => [file]);
         }
@@ -194,14 +196,7 @@ export default class PigeonholePlugin extends Plugin {
   private isClassified(file: TFile): boolean {
     const fm: Record<string, unknown> | undefined =
       this.app.metadataCache.getFileCache(file)?.frontmatter;
-    if (!fm) return false;
-
-    const name = fm[this.settings.propertyName];
-    if (name == null) return false;
-
-    const category = named(this.settings.categories).find((c) => c.name === name);
-    if (!category || named(category.children ?? []).length === 0) return true;
-    return !this.settings.subPropertyName || fm[this.settings.subPropertyName] != null;
+    return fm?.[this.settings.propertyName] != null;
   }
 
   private excluded(path: string): boolean {
@@ -228,11 +223,12 @@ export default class PigeonholePlugin extends Plugin {
     return cats;
   }
 
-  private unclassifiedIn(folder: TFolder): TFile[] {
+  private targetsIn(folder: TFolder): TFile[] {
     const files: TFile[] = [];
     Vault.recurseChildren(folder, (f) => {
       if (!(f instanceof TFile) || f.extension !== "md") return;
-      if (this.excluded(f.path) || this.isClassified(f)) return;
+      if (this.excluded(f.path)) return;
+      if (!this.settings.reclassify && this.isClassified(f)) return;
       files.push(f);
     });
     return files;
@@ -461,6 +457,11 @@ class PigeonholeSettingTab extends PluginSettingTab {
         name: msg.setAutoOnSave,
         desc: msg.setAutoOnSaveDesc,
         control: { type: "toggle", key: "autoOnSave" },
+      },
+      {
+        name: msg.setReclassify,
+        desc: msg.setReclassifyDesc,
+        control: { type: "toggle", key: "reclassify" },
       },
       {
         type: "list",

@@ -52,7 +52,7 @@ Right-click a note or a folder in the file explorer and pick **Pigeonhole**, or 
 
 For each note, Pigeonhole picks one folder or attribute, writes it to frontmatter as `category: meeting`, and moves the file there. A nested destination is split across the two properties, so `work/beacon` is written as `category: work` and `subcategory: beacon`. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
 
-The note is left where it is when the model is unsure, or when none of your attributes fit. The reason is shown after the run. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands.
+The note is left where it is when the model is unsure, or when none of your attributes fit. The reason is shown after the run. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands, unless **Reclassify classified notes** is on.
 
 ## Settings
 
@@ -67,6 +67,7 @@ The note is left where it is when the model is unsure, or when none of your attr
 | Characters of body text to send              | 4000          | How much of the note body is sent.                                                                                                   |
 | Create the target folder if missing          | on            | When off, a note whose target folder does not exist is reported as an error instead of being moved.                                  |
 | Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched.                      |
+| Reclassify classified notes | off | The bulk commands also process notes that already have the property, and move them if a better destination is found. Classify on save still handles only unclassified notes. |
 
 
 ## License
@@ -131,7 +132,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 
 各ノートについてフォルダまたは属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、そこへ移動する。階層のある移動先は2つのプロパティに分けて書かれる。`work/beacon` なら `category: work` と `subcategory: beacon` になる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
 
-モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は実行後に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。
+モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は実行後に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。**分類済みのノートも再分類** を ON にすると対象に含まれる。
 
 ## 設定
 
@@ -146,6 +147,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                                    |
 | 移動先フォルダが無ければ作成         | ON            | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。       |
 | 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。               |
+| 分類済みのノートも再分類 | OFF | 一括コマンドが属性の入ったノートも分類し直し、より適した移動先があれば移動する。保存時の自動分類は未分類のノートだけが対象のまま。 |
 
 
 ## ライセンス

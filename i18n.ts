@@ -64,6 +64,9 @@ const en = {
   setAutoOnSave: "Classify on save",
   setAutoOnSaveDesc:
     "Classifies a note 10 seconds after you stop editing it. The note you are looking at is left alone.",
+  setReclassify: "Reclassify classified notes",
+  setReclassifyDesc:
+    "When on, the bulk commands also process notes that already have the property, and move them if a better destination is found. Classify on save still handles only unclassified notes.",
 
   attributes: "Attributes",
   attributesHint:
@@ -143,6 +146,9 @@ const ja: typeof en = {
   setAutoOnSave: "保存時に自動分類",
   setAutoOnSaveDesc:
     "編集停止から10秒後、属性が未設定のノートだけを分類します。いま開いているノートは対象外です。",
+  setReclassify: "分類済みのノートも再分類",
+  setReclassifyDesc:
+    "ON のとき、一括コマンドは属性が入っているノートも分類し直し、より適した移動先が見つかれば移動します。保存時の自動分類は ON でも未分類のノートだけが対象です。",
 
   attributes: "属性",
   attributesHint:
