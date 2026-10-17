@@ -124,6 +124,8 @@ export default class PigeonholePlugin extends Plugin {
 
   private stopRequested = false;
 
+  private running = false;
+
   private flushPending = debounce(() => void this.drain(), 10000, true);
 
   async onload() {
@@ -287,6 +289,10 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private async drain() {
+    if (this.running) {
+      this.flushPending();
+      return;
+    }
     const active = this.app.workspace.getActiveFile();
     const files: TFile[] = [];
     for (const path of this.pending) {
@@ -299,6 +305,19 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private async run(files: TFile[], mode: Mode) {
+    if (this.running) {
+      if (mode !== "auto") new Notice(`Pigeonhole: ${msg.busy}`);
+      return;
+    }
+    this.running = true;
+    try {
+      await this.execute(files, mode);
+    } finally {
+      this.running = false;
+    }
+  }
+
+  private async execute(files: TFile[], mode: Mode) {
     if (!this.apiKey()) {
       new Notice(`Pigeonhole: ${msg.noApiKey}`);
       return;

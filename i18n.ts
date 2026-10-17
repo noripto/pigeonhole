@@ -28,6 +28,7 @@ const en = {
   nothingToDo: "No unclassified notes to process",
   working: "Classifying...",
   stop: "Stop",
+  busy: "A classification is already running",
   confirmBody: (n: number) =>
     `Classify ${n} notes? Notes may be moved and their frontmatter rewritten. You can undo from the result view.`,
   confirmRun: "Classify",
@@ -118,6 +119,7 @@ const ja: typeof en = {
   nothingToDo: "対象の未分類ノートがありません",
   working: "分類中…",
   stop: "中止",
+  busy: "別の分類を実行中です",
   confirmBody: (n: number) =>
     `${n} 件のノートを分類します。ノートの移動と frontmatter の書き換えが起きます。結果画面から元に戻せます。`,
   confirmRun: "分類する",
