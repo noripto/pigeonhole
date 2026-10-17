@@ -31,6 +31,10 @@ const SECRET_ID = "pigeonhole-api-key";
 
 type Mode = "single" | "bulk" | "auto";
 
+class FatalApiError extends Error {}
+
+const FATAL_STATUS = new Set([401, 403, 429]);
+
 const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
 
 const blank = (): Category => ({ name: "", description: "", folder: "" });
@@ -292,6 +296,7 @@ export default class PigeonholePlugin extends Plugin {
           result.failed.push({ path: files[i].path, error });
           console.error("Pigeonhole:", files[i].path, e);
           if (single) new Notice(`Pigeonhole: ${error}`);
+          if (e instanceof FatalApiError) break;
         }
       }
     } finally {
@@ -329,7 +334,8 @@ export default class PigeonholePlugin extends Plugin {
       throw: false,
     });
     if (res.status !== 200) {
-      throw new Error(`API ${res.status}: ${res.text.slice(0, 200)}`);
+      const message = `API ${res.status}: ${res.text.slice(0, 200)}`;
+      throw FATAL_STATUS.has(res.status) ? new FatalApiError(message) : new Error(message);
     }
     let payload: { answers?: Record<string, ChoiceAnswer> } | undefined;
     try {
