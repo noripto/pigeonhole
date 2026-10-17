@@ -16,7 +16,7 @@ Search for **Pigeonhole** in **Settings → Community plugins → Browse**, or o
 ## Setup
 
 1. Get an API key at [console.typesafe.ai/keys](https://console.typesafe.ai/keys).
-2. Open **Settings → Pigeonhole** and paste it into **TypeSafe API key**.
+2. Open **Settings → Pigeonhole**, and under **TypeSafe API key** choose the secret that holds the key. The key is kept in Obsidian's secret storage, not in the plugin settings.
 
 That is the whole setup.
 
@@ -63,7 +63,7 @@ The note is left where it is when the model is unsure, or when none of your attr
 
 | Setting                                      | Default       |                                                                                                                                      |
 | -------------------------------------------- | ------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
-| TypeSafe API key                             | (empty)       | Your API key.                                                                                                                        |
+| TypeSafe API key                             | `pigeonhole-api-key` | The secret that holds your API key.                                                                                           |
 | Frontmatter property name                    | `category`    | The frontmatter key the attribute is written to.                                                                                     |
 | Frontmatter property name for sub-attributes | `subcategory` | The key the sub-attribute is written to. Leave it empty to skip writing it.                                                          |
 | Confidence threshold                         | 0.6           | Below this, the note is not moved. Raise it if notes end up in the wrong folder.                                                     |
@@ -102,7 +102,7 @@ MIT
 ## 初期設定
 
 1. [console.typesafe.ai/keys](https://console.typesafe.ai/keys) で API キーを取得する。
-2. **設定 → Pigeonhole** を開き、**TypeSafe API キー** に貼り付ける。
+2. **設定 → Pigeonhole** を開き、**TypeSafe API キー** で API キーを保存したシークレットを選ぶ。キーはプラグイン設定ではなく Obsidian のシークレットストレージに保存される。
 
 Vault にあるフォルダがそのまま候補になるので、仕事のノートは `work/` へ、特定案件のノートは `work/その案件/` へ入る。
 
@@ -147,7 +147,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 
 | 設定                     | 既定値           |                                                 |
 | ---------------------- | ------------- | ----------------------------------------------- |
-| TypeSafe API キー        | （空）           | API キー。                                         |
+| TypeSafe API キー        | `pigeonhole-api-key` | API キーを保存したシークレット。                         |
 | frontmatter プロパティ名     | `category`    | 属性を書き込む frontmatter のキー。                        |
 | frontmatter サブ属性プロパティ名 | `subcategory` | 子属性を書き込むキー。空にすると書き込まない。                         |
 | confidence の下限         | 0.6           | これを下回ると移動しない。誤った振り分けが多いときは上げる。                  |

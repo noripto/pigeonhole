@@ -5,6 +5,7 @@ import {
   Notice,
   Plugin,
   PluginSettingTab,
+  SecretComponent,
   Setting,
   SettingPage,
   TFile,
@@ -27,8 +28,6 @@ import { msg } from "./i18n.ts";
 import { RESULT_VIEW, ResultView, type RunResult } from "./result-view.ts";
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
-
-const SECRET_ID = "pigeonhole-api-key";
 
 type Mode = "single" | "bulk" | "auto";
 
@@ -92,6 +91,7 @@ const joinFolder = (parent: string, child: string) =>
   parent === "" || child === "" ? parent || child : `${parent}/${child}`;
 
 type PigeonholeSettings = {
+  apiKeySecret: string;
   categories: Category[];
   propertyName: string;
   subPropertyName: string;
@@ -104,6 +104,7 @@ type PigeonholeSettings = {
 };
 
 const DEFAULT_SETTINGS: PigeonholeSettings = {
+  apiKeySecret: "pigeonhole-api-key",
   categories: [],
   propertyName: "category",
   subPropertyName: "subcategory",
@@ -135,7 +136,7 @@ export default class PigeonholePlugin extends Plugin {
     const { apiKey: legacyKey, ...rest } = saved ?? {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
     if (legacyKey) {
-      this.app.secretStorage.setSecret(SECRET_ID, legacyKey);
+      this.app.secretStorage.setSecret(this.settings.apiKeySecret, legacyKey);
       await this.saveSettings();
     }
     if (saved === null) {
@@ -240,11 +241,7 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   apiKey(): string {
-    return this.app.secretStorage.getSecret(SECRET_ID) ?? "";
-  }
-
-  setApiKey(value: string) {
-    this.app.secretStorage.setSecret(SECRET_ID, value);
+    return this.app.secretStorage.getSecret(this.settings.apiKeySecret) ?? "";
   }
 
   async saveSettings() {
@@ -557,7 +554,14 @@ class PigeonholeSettingTab extends PluginSettingTab {
       {
         name: msg.setApiKey,
         desc: msg.setApiKeyDesc,
-        control: { type: "text", key: "apiKey", placeholder: "apikey_..." },
+        render: (setting) => {
+          setting.addComponent((el) =>
+            new SecretComponent(this.app, el).setValue(s.apiKeySecret).onChange((id) => {
+              s.apiKeySecret = id;
+              void this.plugin.saveSettings();
+            }),
+          );
+        },
       },
       { name: msg.setProperty, control: { type: "text", key: "propertyName" } },
       { name: msg.setSubProperty, control: { type: "text", key: "subPropertyName" } },
@@ -603,17 +607,12 @@ class PigeonholeSettingTab extends PluginSettingTab {
   }
 
   getControlValue(key: string): unknown {
-    if (key === "apiKey") return this.plugin.apiKey();
     if (key === "excludePaths") return this.plugin.settings.excludePaths.join("\n");
     return resolve(this.plugin.settings, key);
   }
 
   async setControlValue(key: string, value: unknown): Promise<void> {
     const s = this.plugin.settings;
-    if (key === "apiKey") {
-      this.plugin.setApiKey(String(value).trim());
-      return;
-    }
     if (key === "excludePaths") {
       s.excludePaths = String(value)
         .split("\n")

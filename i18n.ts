@@ -56,7 +56,8 @@ const en = {
   },
 
   setApiKey: "TypeSafe API key",
-  setApiKeyDesc: "You need to get a Jev API key.",
+  setApiKeyDesc:
+    "Choose the secret that holds your TypeSafe API key. Secrets are kept in Obsidian's secret storage, not in the plugin settings.",
   setProperty: "Frontmatter property name",
   setSubProperty: "Frontmatter property name for sub-attributes",
   setThreshold: "Confidence threshold",
@@ -147,7 +148,8 @@ const ja: typeof en = {
   },
 
   setApiKey: "TypeSafe API キー",
-  setApiKeyDesc: "Jev の API キーを取得する必要があります。",
+  setApiKeyDesc:
+    "TypeSafe の API キーを保存したシークレットを選びます。シークレットはプラグイン設定ではなく、Obsidian のシークレットストレージに保存されます。",
   setProperty: "frontmatter プロパティ名",
   setSubProperty: "frontmatter サブ属性プロパティ名",
   setThreshold: "confidence の下限",
