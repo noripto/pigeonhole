@@ -48,9 +48,13 @@ Right-click a note or a folder in the file explorer and pick **Pigeonhole**, or 
 | Classify this note                         | Classifies the note you have open.                                                |
 | Classify unclassified notes in this folder | Classifies unclassified notes in the current note's folder, including subfolders. |
 | Classify unclassified notes in the vault   | Classifies every unclassified note in the vault.                                  |
+| Show the last classification result | Opens the result of the last run. |
+| Stop the running classification | Stops a bulk run after the current note. |
 
 
 For each note, Pigeonhole picks one folder or attribute, writes it to frontmatter as `category: meeting`, and moves the file there. A nested destination is split across the two properties, so `work/beacon` is written as `category: work` and `subcategory: beacon`. Links to the note are updated by Obsidian, so nothing breaks. If a note with the same name is already in the target folder, a number is appended, the way Obsidian names new notes.
+
+The two bulk commands ask for confirmation with the number of notes first. While they run, the notice has a **Stop** button. After a run, the result view has **Undo this run**, which moves the notes back and restores their frontmatter.
 
 The note is left where it is when the model is unsure, or when none of your attributes fit. The reason is shown after the run. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands, unless **Reclassify classified notes** is on.
 
@@ -128,9 +132,13 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | このノートを分類           | 開いているノートを分類する。                |
 | このフォルダの未分類ノートを分類   | 現在のノートがあるフォルダを、サブフォルダ込みで分類する。 |
 | Vault 全体の未分類ノートを分類 | Vault 内の未分類ノートをすべて分類する。       |
+| 最後の分類結果を表示 | 直前の実行結果を開く。 |
+| 実行中の分類を中止 | 一括処理を、いま処理中のノートの後で止める。 |
 
 
 各ノートについてフォルダまたは属性を1つ選び、frontmatter に `category: meeting` のように書き込んでから、そこへ移動する。階層のある移動先は2つのプロパティに分けて書かれる。`work/beacon` なら `category: work` と `subcategory: beacon` になる。ノートへのリンクは Obsidian が追従するので壊れない。移動先に同名のノートがある場合は、Obsidian と同じように連番が付く。
+
+一括コマンドは、実行前に対象の件数を示して確認する。実行中の通知には **中止** ボタンがある。実行後の結果画面にある **この実行を元に戻す** を押すと、ノートを元の場所に戻し、frontmatter も元に戻す。
 
 モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は実行後に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。**分類済みのノートも再分類** を ON にすると対象に含まれる。
 

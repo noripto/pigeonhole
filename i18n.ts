@@ -6,6 +6,7 @@ const en = {
   cmdFolder: "Classify unclassified notes in this folder",
   cmdVault: "Classify unclassified notes in the vault",
   cmdResult: "Show the last classification result",
+  cmdStop: "Stop the running classification",
 
   resultTitle: "Classification result",
   resultEmpty: "Nothing has been classified yet.",
@@ -26,6 +27,12 @@ const en = {
   noCategories: "No folders in the vault and no attributes in the settings",
   nothingToDo: "No unclassified notes to process",
   working: "Classifying...",
+  stop: "Stop",
+  confirmBody: (n: number) =>
+    `Classify ${n} notes? Notes may be moved and their frontmatter rewritten. You can undo from the result view.`,
+  confirmRun: "Classify",
+  undo: "Undo this run",
+  undone: (restored: number, total: number) => `Undid ${restored} of ${total} notes`,
   notMoved: (reason: string) => `Not moved - ${reason}`,
   summary: (moved: number, skipped: number, failed: number) =>
     `moved ${moved} / skipped ${skipped} / failed ${failed}`,
@@ -89,6 +96,7 @@ const ja: typeof en = {
   cmdFolder: "このフォルダの未分類ノートを分類",
   cmdVault: "Vault 全体の未分類ノートを分類",
   cmdResult: "最後の分類結果を表示",
+  cmdStop: "実行中の分類を中止",
 
   resultTitle: "分類結果",
   resultEmpty: "まだ何も分類していません。",
@@ -109,6 +117,12 @@ const ja: typeof en = {
   noCategories: "Vault にフォルダが無く、設定にも属性がありません",
   nothingToDo: "対象の未分類ノートがありません",
   working: "分類中…",
+  stop: "中止",
+  confirmBody: (n: number) =>
+    `${n} 件のノートを分類します。ノートの移動と frontmatter の書き換えが起きます。結果画面から元に戻せます。`,
+  confirmRun: "分類する",
+  undo: "この実行を元に戻す",
+  undone: (restored: number, total: number) => `${total} 件中 ${restored} 件を元に戻しました`,
   notMoved: (reason: string) => `移動しませんでした — ${reason}`,
   summary: (moved: number, skipped: number, failed: number) =>
     `移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`,

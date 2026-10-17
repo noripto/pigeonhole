@@ -1,5 +1,6 @@
 import {
   App,
+  ConfirmationModal,
   Menu,
   Notice,
   Plugin,
@@ -34,6 +35,35 @@ type Mode = "single" | "bulk" | "auto";
 class FatalApiError extends Error {}
 
 const FATAL_STATUS = new Set([401, 403, 429]);
+
+class ConfirmModal extends ConfirmationModal {
+  private confirmed = false;
+  private resolve: (ok: boolean) => void;
+
+  constructor(app: App, body: string, resolve: (ok: boolean) => void) {
+    super(app);
+    this.resolve = resolve;
+    this.setTitle("Pigeonhole").setContent(body);
+    this.addButton((b) =>
+      b
+        .setButtonText(msg.confirmRun)
+        .setCta()
+        .setInitialFocus()
+        .onClick(() => {
+          this.confirmed = true;
+        }),
+    );
+    this.addCancelButton();
+  }
+
+  onClose() {
+    super.onClose();
+    this.resolve(this.confirmed);
+  }
+}
+
+const confirm = (app: App, body: string) =>
+  new Promise<boolean>((resolve) => new ConfirmModal(app, body, resolve).open());
 
 const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
 
@@ -92,6 +122,8 @@ export default class PigeonholePlugin extends Plugin {
 
   private pending = new Set<string>();
 
+  private stopRequested = false;
+
   private flushPending = debounce(() => void this.drain(), 10000, true);
 
   async onload() {
@@ -110,7 +142,15 @@ export default class PigeonholePlugin extends Plugin {
       new Notice(`Pigeonhole: ${msg.defaultsAdded}`);
     }
     this.addSettingTab(new PigeonholeSettingTab(this.app, this));
-    this.registerView(RESULT_VIEW, (leaf) => new ResultView(leaf, () => this.lastResult));
+    this.registerView(
+      RESULT_VIEW,
+      (leaf) =>
+        new ResultView(
+          leaf,
+          () => this.lastResult,
+          (result) => this.undo(result),
+        ),
+    );
 
     this.addCommand({
       id: "classify-current-note",
@@ -142,6 +182,14 @@ export default class PigeonholePlugin extends Plugin {
       id: "show-result",
       name: msg.cmdResult,
       callback: () => void this.showResult(),
+    });
+
+    this.addCommand({
+      id: "stop-classification",
+      name: msg.cmdStop,
+      callback: () => {
+        this.stopRequested = true;
+      },
     });
 
     this.addCommand({
@@ -265,18 +313,30 @@ export default class PigeonholePlugin extends Plugin {
       return;
     }
 
+    if (mode === "bulk" && !(await confirm(this.app, msg.confirmBody(files.length)))) return;
+
     const single = mode === "single";
     const notice = new Notice(`Pigeonhole: ${msg.working}`, 0);
-    const result: RunResult = { moved: [], tagged: [], skipped: [], failed: [] };
+    const progress = notice.messageEl.createSpan();
+    if (!single) {
+      notice.messageEl.createEl("button", { text: msg.stop }).onclick = () => {
+        this.stopRequested = true;
+      };
+    }
+    const result: RunResult = { moved: [], tagged: [], skipped: [], failed: [], changes: [] };
+    this.stopRequested = false;
 
     try {
       for (let i = 0; i < files.length; i++) {
-        if (!single) notice.setMessage(`Pigeonhole: ${i + 1}/${files.length} ${files[i].basename}`);
+        if (this.stopRequested) break;
+        if (!single) progress.setText(`Pigeonhole: ${i + 1}/${files.length} ${files[i].basename}`);
         try {
           const from = files[i].path;
           const fromFolder = files[i].parent?.path ?? "/";
+          const prev = this.properties(files[i]);
           const decision = await this.classifyFile(files[i], categories);
           if (decision.action === "move") {
+            result.changes.push({ file: files[i], path: from, prev });
             if (files[i].path !== from) {
               result.moved.push({
                 path: files[i].path,
@@ -312,6 +372,41 @@ export default class PigeonholePlugin extends Plugin {
     new Notice(
       `Pigeonhole: ${msg.summary(result.moved.length, result.skipped.length, result.failed.length)}`,
     );
+  }
+
+  private properties(file: TFile): Record<string, unknown> {
+    const fm: Record<string, unknown> | undefined =
+      this.app.metadataCache.getFileCache(file)?.frontmatter;
+    const keys = [this.settings.propertyName, this.settings.subPropertyName].filter((k) => k);
+    return Object.fromEntries(keys.map((k) => [k, fm?.[k]]));
+  }
+
+  private async undo(result: RunResult) {
+    let restored = 0;
+    for (const { file, path, prev } of result.changes) {
+      try {
+        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+          for (const [key, value] of Object.entries(prev)) {
+            if (value === undefined) delete fm[key];
+            else fm[key] = value;
+          }
+        });
+        if (file.path !== path) {
+          const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
+          if (folder !== "") await this.createFolder(folder);
+          const target = this.app.vault.getAbstractFileByPath(path)
+            ? this.freeName(folder, file)
+            : path;
+          await this.app.fileManager.renameFile(file, target);
+        }
+        restored++;
+      } catch (e) {
+        console.error("Pigeonhole: undo", file.path, e);
+      }
+    }
+    result.undone = true;
+    new Notice(`Pigeonhole: ${msg.undone(restored, result.changes.length)}`);
+    await this.showResult();
   }
 
   private async showResult() {
