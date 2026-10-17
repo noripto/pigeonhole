@@ -6,6 +6,7 @@ const en = {
   cmdFolder: "Classify unclassified notes in this folder",
   cmdVault: "Classify unclassified notes in the vault",
   cmdResult: "Show the last classification result",
+  cmdStop: "Stop the running classification",
 
   resultTitle: "Classification result",
   resultEmpty: "Nothing has been classified yet.",
@@ -26,6 +27,13 @@ const en = {
   noCategories: "No folders in the vault and no attributes in the settings",
   nothingToDo: "No unclassified notes to process",
   working: "Classifying...",
+  stop: "Stop",
+  busy: "A classification is already running",
+  confirmBody: (n: number) =>
+    `Classify ${n} notes? Notes may be moved and their frontmatter rewritten. You can undo from the result view.`,
+  confirmRun: "Classify",
+  undo: "Undo this run",
+  undone: (restored: number, total: number) => `Undid ${restored} of ${total} notes`,
   notMoved: (reason: string) => `Not moved - ${reason}`,
   summary: (moved: number, skipped: number, failed: number) =>
     `moved ${moved} / skipped ${skipped} / failed ${failed}`,
@@ -48,7 +56,8 @@ const en = {
   },
 
   setApiKey: "TypeSafe API key",
-  setApiKeyDesc: "You need to get a Jev API key.",
+  setApiKeyDesc:
+    "Choose the secret that holds your TypeSafe API key. Secrets are kept in Obsidian's secret storage, not in the plugin settings.",
   setProperty: "Frontmatter property name",
   setSubProperty: "Frontmatter property name for sub-attributes",
   setThreshold: "Confidence threshold",
@@ -57,6 +66,9 @@ const en = {
   setExcludeDesc:
     "One folder or note per line. They are never used as a destination, and notes under them are left alone by the bulk commands and by classify on save.",
   phExclude: "templates\narchive/2024",
+  setFolderDepth: "Folder depth for candidates",
+  setFolderDepthDesc:
+    "Vault folders deeper than this are not offered as destinations. 0 means no limit. Lower it if your vault has many folders.",
   setMaxChars: "Characters of body text to send",
   setCreateFolder: "Create the target folder if missing",
   setCreateFolderDesc:
@@ -64,6 +76,9 @@ const en = {
   setAutoOnSave: "Classify on save",
   setAutoOnSaveDesc:
     "Classifies a note 10 seconds after you stop editing it. The note you are looking at is left alone.",
+  setReclassify: "Reclassify classified notes",
+  setReclassifyDesc:
+    "When on, the bulk commands also process notes that already have the property, and move them if a better destination is found. Classify on save still handles only unclassified notes.",
 
   attributes: "Attributes",
   attributesHint:
@@ -86,6 +101,7 @@ const ja: typeof en = {
   cmdFolder: "このフォルダの未分類ノートを分類",
   cmdVault: "Vault 全体の未分類ノートを分類",
   cmdResult: "最後の分類結果を表示",
+  cmdStop: "実行中の分類を中止",
 
   resultTitle: "分類結果",
   resultEmpty: "まだ何も分類していません。",
@@ -106,6 +122,13 @@ const ja: typeof en = {
   noCategories: "Vault にフォルダが無く、設定にも属性がありません",
   nothingToDo: "対象の未分類ノートがありません",
   working: "分類中…",
+  stop: "中止",
+  busy: "別の分類を実行中です",
+  confirmBody: (n: number) =>
+    `${n} 件のノートを分類します。ノートの移動と frontmatter の書き換えが起きます。結果画面から元に戻せます。`,
+  confirmRun: "分類する",
+  undo: "この実行を元に戻す",
+  undone: (restored: number, total: number) => `${total} 件中 ${restored} 件を元に戻しました`,
   notMoved: (reason: string) => `移動しませんでした — ${reason}`,
   summary: (moved: number, skipped: number, failed: number) =>
     `移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`,
@@ -128,7 +151,8 @@ const ja: typeof en = {
   },
 
   setApiKey: "TypeSafe API キー",
-  setApiKeyDesc: "Jev の API キーを取得する必要があります。",
+  setApiKeyDesc:
+    "TypeSafe の API キーを保存したシークレットを選びます。シークレットはプラグイン設定ではなく、Obsidian のシークレットストレージに保存されます。",
   setProperty: "frontmatter プロパティ名",
   setSubProperty: "frontmatter サブ属性プロパティ名",
   setThreshold: "confidence の下限",
@@ -137,12 +161,18 @@ const ja: typeof en = {
   setExcludeDesc:
     "1行に1つ、フォルダかノートを書きます。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になります。",
   phExclude: "templates\narchive/2024",
+  setFolderDepth: "候補にするフォルダの深さ",
+  setFolderDepthDesc:
+    "これより深い階層の Vault フォルダは移動先の候補にしません。0 は無制限です。フォルダが多い Vault では小さくしてください。",
   setMaxChars: "送信する本文の文字数上限",
   setCreateFolder: "移動先フォルダが無ければ作成",
   setCreateFolderDesc: "OFF のときは、フォルダが存在しないノートは移動せずエラーとして報告します。",
   setAutoOnSave: "保存時に自動分類",
   setAutoOnSaveDesc:
     "編集停止から10秒後、属性が未設定のノートだけを分類します。いま開いているノートは対象外です。",
+  setReclassify: "分類済みのノートも再分類",
+  setReclassifyDesc:
+    "ON のとき、一括コマンドは属性が入っているノートも分類し直し、より適した移動先が見つかれば移動します。保存時の自動分類は ON でも未分類のノートだけが対象です。",
 
   attributes: "属性",
   attributesHint:

@@ -1,4 +1,4 @@
-import { ItemView, MarkdownRenderer, type WorkspaceLeaf } from "obsidian";
+import { ItemView, MarkdownRenderer, type TFile, type WorkspaceLeaf } from "obsidian";
 import { msg } from "./i18n.ts";
 
 export const RESULT_VIEW = "pigeonhole-result";
@@ -8,6 +8,8 @@ export type RunResult = {
   tagged: { path: string; name: string }[];
   skipped: { path: string; reason: string }[];
   failed: { path: string; error: string }[];
+  changes: { file: TFile; path: string; prev: Record<string, unknown> }[];
+  undone?: boolean;
 };
 
 const cell = (text: string) => text.split("|").join("\\|");
@@ -21,10 +23,16 @@ const folder = (path: string) => `\`${path}\``;
 
 export class ResultView extends ItemView {
   result: () => RunResult | null;
+  undo: (result: RunResult) => Promise<void>;
 
-  constructor(leaf: WorkspaceLeaf, result: () => RunResult | null) {
+  constructor(
+    leaf: WorkspaceLeaf,
+    result: () => RunResult | null,
+    undo: (result: RunResult) => Promise<void>,
+  ) {
     super(leaf);
     this.result = result;
+    this.undo = undo;
   }
 
   getViewType(): string {
@@ -45,6 +53,14 @@ export class ResultView extends ItemView {
 
   async render(): Promise<void> {
     this.contentEl.empty();
+    const result = this.result();
+    if (result && result.changes.length > 0 && !result.undone) {
+      const button = this.contentEl.createEl("button", { text: msg.undo, cls: "mod-warning" });
+      button.onclick = () => {
+        button.disabled = true;
+        void this.undo(result);
+      };
+    }
     const body = this.contentEl
       .createDiv({ cls: "markdown-preview-view markdown-rendered is-readable-line-width" })
       .createDiv({ cls: "markdown-preview-sizer markdown-preview-section" });
