@@ -98,6 +98,7 @@ type PigeonholeSettings = {
   confidenceThreshold: number;
   maxChars: number;
   excludePaths: string[];
+  maxFolderDepth: number;
   autoOnSave: boolean;
   reclassify: boolean;
   createMissingFolder: boolean;
@@ -111,6 +112,7 @@ const DEFAULT_SETTINGS: PigeonholeSettings = {
   confidenceThreshold: 0.6,
   maxChars: 4000,
   excludePaths: [],
+  maxFolderDepth: 0,
   autoOnSave: false,
   reclassify: false,
   createMissingFolder: true,
@@ -265,6 +267,8 @@ export default class PigeonholePlugin extends Plugin {
     Vault.recurseChildren(this.app.vault.getRoot(), (f) => {
       if (!(f instanceof TFolder) || f.isRoot() || used.has(f.path)) return;
       if (this.excluded(f.path)) return;
+      const { maxFolderDepth } = this.settings;
+      if (maxFolderDepth > 0 && f.path.split("/").length > maxFolderDepth) return;
       const titles = f.children
         .filter((c): c is TFile => c instanceof TFile && c.extension === "md")
         .slice(0, 5)
@@ -574,6 +578,11 @@ class PigeonholeSettingTab extends PluginSettingTab {
         name: msg.setExclude,
         desc: msg.setExcludeDesc,
         control: { type: "textarea", key: "excludePaths", placeholder: msg.phExclude, rows: 3 },
+      },
+      {
+        name: msg.setFolderDepth,
+        desc: msg.setFolderDepthDesc,
+        control: { type: "number", key: "maxFolderDepth", min: 0 },
       },
       { name: msg.setMaxChars, control: { type: "number", key: "maxChars", min: 1 } },
       {

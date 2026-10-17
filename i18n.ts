@@ -66,6 +66,9 @@ const en = {
   setExcludeDesc:
     "One folder or note per line. They are never used as a destination, and notes under them are left alone by the bulk commands and by classify on save.",
   phExclude: "templates\narchive/2024",
+  setFolderDepth: "Folder depth for candidates",
+  setFolderDepthDesc:
+    "Vault folders deeper than this are not offered as destinations. 0 means no limit. Lower it if your vault has many folders.",
   setMaxChars: "Characters of body text to send",
   setCreateFolder: "Create the target folder if missing",
   setCreateFolderDesc:
@@ -158,6 +161,9 @@ const ja: typeof en = {
   setExcludeDesc:
     "1行に1つ、フォルダかノートを書きます。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になります。",
   phExclude: "templates\narchive/2024",
+  setFolderDepth: "候補にするフォルダの深さ",
+  setFolderDepthDesc:
+    "これより深い階層の Vault フォルダは移動先の候補にしません。0 は無制限です。フォルダが多い Vault では小さくしてください。",
   setMaxChars: "送信する本文の文字数上限",
   setCreateFolder: "移動先フォルダが無ければ作成",
   setCreateFolderDesc: "OFF のときは、フォルダが存在しないノートは移動せずエラーとして報告します。",
