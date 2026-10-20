@@ -71,7 +71,7 @@ The note is left where it is when the model is unsure, or when none of your attr
 | Folder depth for candidates | 0 | Vault folders deeper than this are not offered as destinations. 0 means no limit. Lower it if your vault has many folders. Attributes are not affected. |
 | Characters of body text to send              | 4000          | How much of the note body is sent.                                                                                                   |
 | Create the target folder if missing          | on            | When off, a note whose target folder does not exist is reported as an error instead of being moved.                                  |
-| Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched.                      |
+| Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched. A note left unmoved is not retried until Obsidian restarts, and more than 10 notes at once (after a sync, say) ask for confirmation first.                      |
 | Reclassify classified notes | off | The bulk commands also process notes that already have the property, and move them if a better destination is found. Classify on save still handles only unclassified notes. |
 
 
@@ -156,7 +156,7 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | 候補にするフォルダの深さ | 0 | これより深い階層の Vault フォルダは移動先の候補にしない。0 は無制限。フォルダが多い Vault では小さくする。属性には影響しない。 |
 | 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                                    |
 | 移動先フォルダが無ければ作成         | ON            | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。       |
-| 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。               |
+| 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。移動しなかったノートは Obsidian を再起動するまで再分類しない。10件を超えるノートが一度に変わったとき（同期の直後など）は、先に確認を出す。               |
 | 分類済みのノートも再分類 | OFF | 一括コマンドが属性の入ったノートも分類し直し、より適した移動先があれば移動する。保存時の自動分類は未分類のノートだけが対象のまま。 |
 
 
