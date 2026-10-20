@@ -1,5 +1,5 @@
 import { getLanguage } from "obsidian";
-import type { SkipReason } from "./classify.ts";
+import { OTHER, type SkipReason } from "./classify.ts";
 
 const en = {
   cmdNote: "Classify this note",
@@ -31,10 +31,13 @@ const en = {
   busy: "A classification is already running",
   confirmBody: (n: number) =>
     `Classify ${n} notes? Notes may be moved and their frontmatter rewritten. You can undo from the result view.`,
+  confirmAuto: (n: number) =>
+    `Classify on save picked up ${n} changed notes at once. Classify them? If you cancel, they are left alone until Obsidian restarts.`,
   confirmRun: "Classify",
   undo: "Undo this run",
   undone: (restored: number, total: number) => `Undid ${restored} of ${total} notes`,
   notMoved: (reason: string) => `Not moved - ${reason}`,
+  tagged: (name: string) => `Set ${name}; the note is already in place`,
   summary: (moved: number, skipped: number, failed: number) =>
     `moved ${moved} / skipped ${skipped} / failed ${failed}`,
 
@@ -49,7 +52,7 @@ const en = {
       case "noMatch":
         return "None of your attributes fit this note";
       case "lowConfidence":
-        return `confidence ${r.confidence.toFixed(2)} < ${r.threshold} (${r.top})`;
+        return `confidence ${r.confidence.toFixed(2)} < ${r.threshold} (${r.top.split(OTHER).join("none")})`;
       case "unknownLabel":
         return `Unknown attribute: ${r.label}`;
     }
@@ -126,10 +129,13 @@ const ja: typeof en = {
   busy: "別の分類を実行中です",
   confirmBody: (n: number) =>
     `${n} 件のノートを分類します。ノートの移動と frontmatter の書き換えが起きます。結果画面から元に戻せます。`,
+  confirmAuto: (n: number) =>
+    `保存時の自動分類で ${n} 件のノートの変更をまとめて検出しました。分類しますか？キャンセルすると、Obsidian を再起動するまでこれらのノートは対象外になります。`,
   confirmRun: "分類する",
   undo: "この実行を元に戻す",
   undone: (restored: number, total: number) => `${total} 件中 ${restored} 件を元に戻しました`,
   notMoved: (reason: string) => `移動しませんでした — ${reason}`,
+  tagged: (name: string) => `${name} を付与しました（移動先は今の場所）`,
   summary: (moved: number, skipped: number, failed: number) =>
     `移動 ${moved} / 見送り ${skipped} / 失敗 ${failed}`,
 
@@ -144,7 +150,7 @@ const ja: typeof en = {
       case "noMatch":
         return "どの属性にも当てはまらないと判定された";
       case "lowConfidence":
-        return `confidence ${r.confidence.toFixed(2)} < ${r.threshold}（${r.top}）`;
+        return `confidence ${r.confidence.toFixed(2)} < ${r.threshold}（${r.top.split(OTHER).join("該当なし")}）`;
       case "unknownLabel":
         return `未知の属性名: ${r.label}`;
     }

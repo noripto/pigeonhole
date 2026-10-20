@@ -35,6 +35,11 @@ class FatalApiError extends Error {}
 
 const FATAL_STATUS = new Set([401, 403, 429]);
 
+const MAX_RETRIES = 3;
+
+// Above this many notes at once (e.g. after a sync), classify on save asks first.
+const AUTO_CONFIRM_OVER = 10;
+
 class ConfirmModal extends ConfirmationModal {
   private confirmed = false;
   private resolve: (ok: boolean) => void;
@@ -124,6 +129,9 @@ export default class PigeonholePlugin extends Plugin {
   private lastResult: RunResult | null = null;
 
   private pending = new Set<string>();
+
+  // Notes classify on save already gave up on this session, so editing them does not call the API again.
+  private autoSkipped = new Set<string>();
 
   private stopRequested = false;
 
@@ -220,6 +228,7 @@ export default class PigeonholePlugin extends Plugin {
           f instanceof TFile &&
           f.extension === "md" &&
           !this.excluded(f.path) &&
+          !this.autoSkipped.has(f.path) &&
           !this.isClassified(f)
         ) {
           this.pending.add(f.path);
@@ -302,9 +311,9 @@ export default class PigeonholePlugin extends Plugin {
     const files: TFile[] = [];
     for (const path of this.pending) {
       const f = this.app.vault.getAbstractFileByPath(path);
-      if (!(f instanceof TFile) || f === active || this.isClassified(f)) continue;
+      if (f instanceof TFile && f === active) continue;
       this.pending.delete(path);
-      files.push(f);
+      if (f instanceof TFile && !this.isClassified(f)) files.push(f);
     }
     if (files.length > 0) await this.run(files, "auto");
   }
@@ -338,6 +347,14 @@ export default class PigeonholePlugin extends Plugin {
     }
 
     if (mode === "bulk" && !(await confirm(this.app, msg.confirmBody(files.length)))) return;
+    if (
+      mode === "auto" &&
+      files.length > AUTO_CONFIRM_OVER &&
+      !(await confirm(this.app, msg.confirmAuto(files.length)))
+    ) {
+      for (const f of files) this.autoSkipped.add(f.path);
+      return;
+    }
 
     const single = mode === "single";
     const notice = new Notice(`Pigeonhole: ${msg.working}`, 0);
@@ -373,6 +390,7 @@ export default class PigeonholePlugin extends Plugin {
           } else {
             const reason = msg.skip(decision.reason);
             result.skipped.push({ path: files[i].path, reason });
+            if (mode === "auto") this.autoSkipped.add(files[i].path);
             if (single) new Notice(`Pigeonhole: ${msg.notMoved(reason)}`);
           }
         } catch (e) {
@@ -390,6 +408,10 @@ export default class PigeonholePlugin extends Plugin {
     this.lastResult = result;
     if (mode === "bulk") {
       await this.showResult();
+      return;
+    }
+    if (single && result.tagged.length > 0) {
+      new Notice(`Pigeonhole: ${msg.tagged(result.tagged[0].name)}`);
       return;
     }
     if (result.moved.length === 0) return;
@@ -442,16 +464,17 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private async ask(body: object): Promise<ChoiceAnswer | undefined> {
-    const res = await requestUrl({
-      url: API_URL,
-      method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey()}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify(body),
-      throw: false,
-    });
+    let res = await this.post(body);
+    for (let attempt = 0; res.status === 429 && attempt < MAX_RETRIES; attempt++) {
+      const retryAfter = Object.entries(res.headers).find(
+        ([k]) => k.toLowerCase() === "retry-after",
+      )?.[1];
+      // Retry-After may be an HTTP date; fall back to exponential backoff then.
+      const until = Date.now() + Math.min(Number(retryAfter) || 2 ** attempt * 2, 60) * 1000;
+      while (Date.now() < until && !this.stopRequested) await sleep(500);
+      if (this.stopRequested) break;
+      res = await this.post(body);
+    }
     if (res.status !== 200) {
       const message = `API ${res.status}: ${res.text.slice(0, 200)}`;
       throw FATAL_STATUS.has(res.status) ? new FatalApiError(message) : new Error(message);
@@ -465,8 +488,24 @@ export default class PigeonholePlugin extends Plugin {
     return payload?.answers?.category;
   }
 
+  private post(body: object) {
+    return requestUrl({
+      url: API_URL,
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${this.apiKey()}`,
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify(body),
+      throw: false,
+    });
+  }
+
   async classifyFile(file: TFile, categories: Category[]): Promise<Decision> {
-    const content = await this.app.vault.cachedRead(file);
+    const raw = await this.app.vault.cachedRead(file);
+    // Frontmatter would eat into maxChars, and an existing property biases reclassification.
+    const end = this.app.metadataCache.getFileCache(file)?.frontmatterPosition?.end.offset;
+    const content = end === undefined ? raw : raw.slice(end).trimStart();
     const { maxChars, confidenceThreshold } = this.settings;
 
     const answer = await this.ask(buildRequest(content, file.basename, categories, maxChars));
