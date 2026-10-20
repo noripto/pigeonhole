@@ -470,7 +470,9 @@ export default class PigeonholePlugin extends Plugin {
         ([k]) => k.toLowerCase() === "retry-after",
       )?.[1];
       // Retry-After may be an HTTP date; fall back to exponential backoff then.
-      await sleep(Math.min(Number(retryAfter) || 2 ** attempt * 2, 60) * 1000);
+      const until = Date.now() + Math.min(Number(retryAfter) || 2 ** attempt * 2, 60) * 1000;
+      while (Date.now() < until && !this.stopRequested) await sleep(500);
+      if (this.stopRequested) break;
       res = await this.post(body);
     }
     if (res.status !== 200) {
