@@ -43,12 +43,12 @@ export const fit = (w: number, h: number): Fit => {
 export const toJpegBase64 = async (data: ArrayBuffer, mime: string): Promise<string> => {
   const url = URL.createObjectURL(new Blob([data], { type: mime }));
   try {
-    const img = new Image();
+    const img = createEl("img");
     img.src = url;
     await img.decode();
     // An SVG without width and height has no natural size.
     const size = fit(img.naturalWidth || 1024, img.naturalHeight || 1024);
-    const canvas = document.createElement("canvas");
+    const canvas = createEl("canvas");
     canvas.width = size.width;
     canvas.height = size.height;
     const ctx = canvas.getContext("2d");
