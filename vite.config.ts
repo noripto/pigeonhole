@@ -1,4 +1,5 @@
-import { defineConfig } from "vite";
+import { fileURLToPath } from "node:url";
+import { defineConfig } from "vitest/config";
 
 export default defineConfig({
   build: {
@@ -8,5 +9,10 @@ export default defineConfig({
     copyPublicDir: false,
     lib: { entry: "main.ts", formats: ["cjs"], fileName: () => "main.js" },
     rollupOptions: { external: ["obsidian", "electron"] },
+  },
+  test: {
+    include: ["tests/**/*.test.ts"],
+    // The real module only exists inside Obsidian; tests get a stand-in.
+    alias: { obsidian: fileURLToPath(new URL("./tests/obsidian.ts", import.meta.url)) },
   },
 });

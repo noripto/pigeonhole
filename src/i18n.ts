@@ -22,6 +22,7 @@ const en = {
   colError: "Error",
 
   needMarkdown: "Open a Markdown note first",
+  needNoteOrImage: "Open a Markdown note or an image first",
   noFolder: "No target folder. Open a note first",
   noApiKey: "Set your API key in the settings",
   noCategories: "No folders in the vault and no attributes in the settings",
@@ -44,6 +45,7 @@ const en = {
   errMissingFolder: (folder: string) =>
     `The folder ${folder} does not exist (automatic creation can be enabled in the settings)`,
   errNotJson: "The API response was not JSON",
+  errImage: "Could not read the image (PNG, JPEG, GIF, WebP, BMP, SVG and AVIF are supported)",
 
   skip: (r: SkipReason) => {
     switch (r.code) {
@@ -73,6 +75,13 @@ const en = {
   setFolderDepthDesc:
     "Vault folders deeper than this are not offered as destinations. 0 means no limit. Lower it if your vault has many folders.",
   setMaxChars: "Characters of body text to send",
+  setNoteImages: "Send embedded images",
+  setNoteImagesDesc:
+    "Experimental. The images embedded in a note are sent along with its text. Images from URLs are downloaded first. TypeSafe treats image input as a preview feature, and images are billed as input tokens.",
+  setMaxImages: "Images to send per note",
+  setImageTargets: "Classify image files",
+  setImageTargetsDesc:
+    "Experimental. Image files are classified and moved too. They have no frontmatter, so the attribute is kept in the plugin's data. The bulk commands only take images that no note links to or embeds.",
   setCreateFolder: "Create the target folder if missing",
   setCreateFolderDesc:
     "When off, a note whose target folder does not exist is reported as an error instead of being moved.",
@@ -120,6 +129,7 @@ const ja: typeof en = {
   colError: "エラー",
 
   needMarkdown: "Markdown ファイルを開いてから実行してください",
+  needNoteOrImage: "Markdown ファイルか画像を開いてから実行してください",
   noFolder: "対象フォルダが分かりません。ノートを開いてから実行してください",
   noApiKey: "設定で API キーを入力してください",
   noCategories: "Vault にフォルダが無く、設定にも属性がありません",
@@ -142,6 +152,7 @@ const ja: typeof en = {
   errMissingFolder: (folder: string) =>
     `フォルダ ${folder} がありません（設定で自動作成を有効にできます）`,
   errNotJson: "API レスポンスが JSON ではありません",
+  errImage: "画像を読み込めませんでした（PNG・JPEG・GIF・WebP・BMP・SVG・AVIF に対応）",
 
   skip: (r: SkipReason) => {
     switch (r.code) {
@@ -171,6 +182,13 @@ const ja: typeof en = {
   setFolderDepthDesc:
     "これより深い階層の Vault フォルダは移動先の候補にしません。0 は無制限です。フォルダが多い Vault では小さくしてください。",
   setMaxChars: "送信する本文の文字数上限",
+  setNoteImages: "埋め込み画像も送る",
+  setNoteImagesDesc:
+    "試験機能です。ノートに埋め込まれた画像も、本文と一緒に送ります。URL の画像は、先にダウンロードしてから送ります。TypeSafe は画像の入力を試作段階の機能としています。画像の分も入力トークンとして課金されます。",
+  setMaxImages: "1ノートあたりに送る画像の上限",
+  setImageTargets: "画像ファイルも分類",
+  setImageTargetsDesc:
+    "試験機能です。画像ファイルも分類して移動します。画像には frontmatter が無いので、付けた属性はプラグインのデータに記録します。一括コマンドでは、どのノートからもリンクも埋め込みもされていない画像だけを扱います。",
   setCreateFolder: "移動先フォルダが無ければ作成",
   setCreateFolderDesc: "OFF のときは、フォルダが存在しないノートは移動せずエラーとして報告します。",
   setAutoOnSave: "保存時に自動分類",

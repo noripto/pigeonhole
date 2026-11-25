@@ -58,6 +58,15 @@ The two bulk commands ask for confirmation with the number of notes first. While
 
 The note is left where it is when the model is unsure, or when none of your attributes fit. The reason is shown after the run. When only the sub-attribute is uncertain, the note is filed under its parent attribute. Notes that already have the property are treated as classified and are skipped by the two bulk commands, unless **Reclassify classified notes** is on.
 
+### Images (experimental)
+
+Two settings let Pigeonhole use images. Both are off by default. TypeSafe treats image input as a preview feature, so results and limits may change.
+
+- **Send embedded images**: when a note is classified, the images embedded in its body (`![[photo.png]]`, `![](photo.png)`, `![](https://…)`) are sent along with the text, up to **Images to send per note**. Images from URLs are downloaded first, so the site that hosts them sees your IP address. An image that cannot be read is skipped, and the note is classified on its text.
+- **Classify image files**: image files (PNG, JPEG, GIF, WebP, BMP, SVG, AVIF) are classified and moved like notes. Run **Classify this note** on an open image, or right-click it. Images have no frontmatter, so the attribute is kept in the plugin's data (`data.json`) and follows renames. The bulk commands only take images that no note links to or embeds, so images attached to notes are not moved. Classify on save does not handle images.
+
+Every image is converted to JPEG and resized to 280–1568 pixels per side before it is sent. Images are billed as input tokens, and they are sent twice when the attribute has sub-attributes.
+
 ## Settings
 
 
@@ -70,6 +79,9 @@ The note is left where it is when the model is unsure, or when none of your attr
 | Excluded paths                               | (empty)       | One folder or note per line. Never used as a destination; notes under them are skipped by the bulk commands and by classify on save. |
 | Folder depth for candidates | 0 | Vault folders deeper than this are not offered as destinations. 0 means no limit. Lower it if your vault has many folders. Attributes are not affected. |
 | Characters of body text to send              | 4000          | How much of the note body is sent.                                                                                                   |
+| Send embedded images | off | Experimental. Sends the images embedded in a note along with its text. |
+| Images to send per note | 4 | 1 to 10. The first images in the note are sent. |
+| Classify image files | off | Experimental. Image files are classified and moved too. |
 | Create the target folder if missing          | on            | When off, a note whose target folder does not exist is reported as an error instead of being moved.                                  |
 | Classify on save                             | off           | Classifies a note 10 seconds after you stop editing it. The note you are currently looking at is never touched. A note left unmoved is not retried until Obsidian restarts, and more than 10 notes at once (after a sync, say) ask for confirmation first.                      |
 | Reclassify classified notes | off | The bulk commands also process notes that already have the property, and move them if a better destination is found. Classify on save still handles only unclassified notes. |
@@ -143,6 +155,15 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 
 モデルが判断に迷った場合や、どの属性にも当てはまらない場合、ノートは動かさない。理由は実行後に表示される。子属性の判定だけが不確かなときは、親の属性として振り分ける。すでに属性が入っているノートは分類済みとみなし、一括コマンドの対象から外れる。**分類済みのノートも再分類** を ON にすると対象に含まれる。
 
+### 画像（試験機能）
+
+画像を使う設定が2つある。どちらも既定は OFF。TypeSafe は画像の入力を試作段階の機能としているので、結果や制限は変わることがある。
+
+- **埋め込み画像も送る**: ノートを分類するとき、本文に埋め込まれた画像（`![[photo.png]]`、`![](photo.png)`、`![](https://…)`）も本文と一緒に送る。送るのは **1ノートあたりに送る画像の上限** の枚数まで。URL の画像は先にダウンロードするので、画像を置いているサイトに IP アドレスが伝わる。読み込めなかった画像は送らず、本文だけで分類する。
+- **画像ファイルも分類**: 画像ファイル（PNG・JPEG・GIF・WebP・BMP・SVG・AVIF）も、ノートと同じように分類して移動する。開いている画像で **このノートを分類** を実行するか、画像を右クリックする。画像には frontmatter が無いので、属性はプラグインのデータ（`data.json`）に記録し、名前の変更にも追従する。一括コマンドでは、どのノートからもリンクも埋め込みもされていない画像だけを扱うので、ノートに添付した画像は動かさない。保存時の自動分類は画像を扱わない。
+
+画像は送る前に JPEG に変換し、各辺を280〜1568ピクセルに収める。画像の分も入力トークンとして課金され、子属性がある属性では画像を2回送る。
+
 ## 設定
 
 
@@ -155,6 +176,9 @@ Vault にあるフォルダがそのまま候補になるので、仕事のノ�
 | 除外パス                   | （空）           | 1行に1つ。移動先の候補から外れ、配下のノートは一括コマンドと保存時の自動分類の対象外になる。 |
 | 候補にするフォルダの深さ | 0 | これより深い階層の Vault フォルダは移動先の候補にしない。0 は無制限。フォルダが多い Vault では小さくする。属性には影響しない。 |
 | 送信する本文の文字数上限           | 4000          | 本文を何文字まで送るか。                                    |
+| 埋め込み画像も送る | OFF | 試験機能。ノートに埋め込まれた画像も、本文と一緒に送る。 |
+| 1ノートあたりに送る画像の上限 | 4 | 1〜10。ノートの先頭にある画像から送る。 |
+| 画像ファイルも分類 | OFF | 試験機能。画像ファイルも分類して移動する。 |
 | 移動先フォルダが無ければ作成         | ON            | OFF のとき、移動先フォルダが存在しないノートは移動せずエラーとして報告される。       |
 | 保存時に自動分類               | OFF           | 編集をやめてから10秒後に分類する。いま開いているノートは対象外。移動しなかったノートは Obsidian を再起動するまで再分類しない。10件を超えるノートが一度に変わったとき（同期の直後など）は、先に確認を出す。               |
 | 分類済みのノートも再分類 | OFF | 一括コマンドが属性の入ったノートも分類し直し、より適した移動先があれば移動する。保存時の自動分類は未分類のノートだけが対象のまま。 |
