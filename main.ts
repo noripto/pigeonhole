@@ -12,6 +12,7 @@ import {
   TFolder,
   Vault,
   debounce,
+  getLinkpath,
   normalizePath,
   requestUrl,
   type SettingDefinitionItem,
@@ -23,8 +24,11 @@ import {
   type Category,
   type ChoiceAnswer,
   type Decision,
+  type Subject,
+  type SystemOneRequest,
 } from "./classify.ts";
 import { msg } from "./i18n.ts";
+import { imageMime, toJpegBase64 } from "./image.ts";
 import { RESULT_VIEW, ResultView, type RunResult } from "./result-view.ts";
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
@@ -33,9 +37,26 @@ type Mode = "single" | "bulk" | "auto";
 
 class FatalApiError extends Error {}
 
-const FATAL_STATUS = new Set([401, 403, 429]);
+// 529 is TypeSafe being overloaded; the docs ask clients to back off like for 429.
+const RETRY_STATUS = new Set([429, 529]);
+
+const FATAL_STATUS = new Set([401, 403, 429, 529]);
 
 const MAX_RETRIES = 3;
+
+// Keeps a request well under the API's 32 MiB body limit.
+const MAX_IMAGES = 10;
+
+const URL_IMAGE_TIMEOUT = 15000;
+
+const EXTERNAL_IMAGE = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)/g;
+
+const isImage = (file: TFile) => imageMime(file.extension) !== undefined;
+
+const header = (headers: Record<string, string>, name: string) =>
+  Object.entries(headers).find(([k]) => k.toLowerCase() === name)?.[1];
+
+const logError = (e: unknown) => console.error("Pigeonhole:", e);
 
 // Above this many notes at once (e.g. after a sync), classify on save asks first.
 const AUTO_CONFIRM_OVER = 10;
@@ -107,6 +128,11 @@ type PigeonholeSettings = {
   autoOnSave: boolean;
   reclassify: boolean;
   createMissingFolder: boolean;
+  noteImages: boolean;
+  maxImages: number;
+  imageTargets: boolean;
+  // Images have no frontmatter, so the attribute given to each image is kept here, by path.
+  classifiedImages: Record<string, string>;
 };
 
 const DEFAULT_SETTINGS: PigeonholeSettings = {
@@ -121,6 +147,10 @@ const DEFAULT_SETTINGS: PigeonholeSettings = {
   autoOnSave: false,
   reclassify: false,
   createMissingFolder: true,
+  noteImages: false,
+  maxImages: 4,
+  imageTargets: false,
+  classifiedImages: {},
 };
 
 export default class PigeonholePlugin extends Plugin {
@@ -145,6 +175,7 @@ export default class PigeonholePlugin extends Plugin {
       | null;
     const { apiKey: legacyKey, ...rest } = saved ?? {};
     this.settings = Object.assign({}, DEFAULT_SETTINGS, rest);
+    this.settings.classifiedImages = { ...this.settings.classifiedImages };
     if (legacyKey) {
       this.app.secretStorage.setSecret(this.settings.apiKeySecret, legacyKey);
       await this.saveSettings();
@@ -170,8 +201,9 @@ export default class PigeonholePlugin extends Plugin {
       name: msg.cmdNote,
       callback: () => {
         const file = this.app.workspace.getActiveFile();
-        if (!file || file.extension !== "md") {
-          new Notice(`Pigeonhole: ${msg.needMarkdown}`);
+        if (!file || !this.isTarget(file)) {
+          const need = this.settings.imageTargets ? msg.needNoteOrImage : msg.needMarkdown;
+          new Notice(`Pigeonhole: ${need}`);
           return;
         }
         void this.run([file], "single");
@@ -215,11 +247,16 @@ export default class PigeonholePlugin extends Plugin {
       this.app.workspace.on("file-menu", (menu, file) => {
         if (file instanceof TFolder) {
           this.addMenuItem(menu, msg.cmdFolder, "bulk", () => this.targetsIn(file));
-        } else if (file instanceof TFile && file.extension === "md") {
+        } else if (file instanceof TFile && this.isTarget(file)) {
           this.addMenuItem(menu, msg.cmdNote, "single", () => [file]);
         }
       }),
     );
+
+    this.registerEvent(
+      this.app.vault.on("rename", (f, oldPath) => this.moveImageRecords(oldPath, f.path)),
+    );
+    this.registerEvent(this.app.vault.on("delete", (f) => this.moveImageRecords(f.path, null)));
 
     this.registerEvent(
       this.app.vault.on("modify", (f) => {
@@ -259,10 +296,38 @@ export default class PigeonholePlugin extends Plugin {
     await this.saveData(this.settings);
   }
 
+  private isTarget(file: TFile): boolean {
+    return file.extension === "md" || (this.settings.imageTargets && isImage(file));
+  }
+
   private isClassified(file: TFile): boolean {
+    if (isImage(file)) return this.settings.classifiedImages[file.path] !== undefined;
     const fm: Record<string, unknown> | undefined =
       this.app.metadataCache.getFileCache(file)?.frontmatter;
     return fm?.[this.settings.propertyName] != null;
+  }
+
+  // Follows a renamed or deleted file or folder; `to` is null on delete.
+  private moveImageRecords(from: string, to: string | null) {
+    const records = this.settings.classifiedImages;
+    let changed = false;
+    // ponytail: scans every record per rename; index by folder if vaults get huge.
+    for (const path of Object.keys(records)) {
+      if (path !== from && !path.startsWith(`${from}/`)) continue;
+      if (to !== null) records[to + path.slice(from.length)] = records[path];
+      delete records[path];
+      changed = true;
+    }
+    if (changed) this.saveSettings().catch(logError);
+  }
+
+  // Images some note links to or embeds. The bulk commands leave these with their notes.
+  private linkedPaths(): Set<string> {
+    const linked = new Set<string>();
+    for (const dests of Object.values(this.app.metadataCache.resolvedLinks)) {
+      for (const path of Object.keys(dests)) linked.add(path);
+    }
+    return linked;
   }
 
   private excluded(path: string): boolean {
@@ -292,9 +357,11 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private targetsIn(folder: TFolder): TFile[] {
+    const linked = this.settings.imageTargets ? this.linkedPaths() : new Set<string>();
     const files: TFile[] = [];
     Vault.recurseChildren(folder, (f) => {
-      if (!(f instanceof TFile) || f.extension !== "md") return;
+      if (!(f instanceof TFile) || !this.isTarget(f)) return;
+      if (isImage(f) && linked.has(f.path)) return;
       if (this.excluded(f.path)) return;
       if (!this.settings.reclassify && this.isClassified(f)) return;
       files.push(f);
@@ -421,6 +488,7 @@ export default class PigeonholePlugin extends Plugin {
   }
 
   private properties(file: TFile): Record<string, unknown> {
+    if (isImage(file)) return { classifiedImage: this.settings.classifiedImages[file.path] };
     const fm: Record<string, unknown> | undefined =
       this.app.metadataCache.getFileCache(file)?.frontmatter;
     const keys = [this.settings.propertyName, this.settings.subPropertyName].filter((k) => k);
@@ -431,12 +499,20 @@ export default class PigeonholePlugin extends Plugin {
     let restored = 0;
     for (const { file, path, prev } of result.changes) {
       try {
-        await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-          for (const [key, value] of Object.entries(prev)) {
-            if (value === undefined) delete fm[key];
-            else fm[key] = value;
-          }
-        });
+        if (isImage(file)) {
+          // Restored at the current path; the rename below carries it back with the file.
+          const before = prev.classifiedImage;
+          if (typeof before === "string") this.settings.classifiedImages[file.path] = before;
+          else delete this.settings.classifiedImages[file.path];
+          await this.saveSettings();
+        } else {
+          await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+            for (const [key, value] of Object.entries(prev)) {
+              if (value === undefined) delete fm[key];
+              else fm[key] = value;
+            }
+          });
+        }
         if (file.path !== path) {
           const folder = path.includes("/") ? path.slice(0, path.lastIndexOf("/")) : "";
           if (folder !== "") await this.createFolder(folder);
@@ -463,12 +539,10 @@ export default class PigeonholePlugin extends Plugin {
     if (leaf.view instanceof ResultView) await leaf.view.render();
   }
 
-  private async ask(body: object): Promise<ChoiceAnswer | undefined> {
+  private async ask(body: SystemOneRequest): Promise<ChoiceAnswer | undefined> {
     let res = await this.post(body);
-    for (let attempt = 0; res.status === 429 && attempt < MAX_RETRIES; attempt++) {
-      const retryAfter = Object.entries(res.headers).find(
-        ([k]) => k.toLowerCase() === "retry-after",
-      )?.[1];
+    for (let attempt = 0; RETRY_STATUS.has(res.status) && attempt < MAX_RETRIES; attempt++) {
+      const retryAfter = header(res.headers, "retry-after");
       // Retry-After may be an HTTP date; fall back to exponential backoff then.
       const until = Date.now() + Math.min(Number(retryAfter) || 2 ** attempt * 2, 60) * 1000;
       while (Date.now() < until && !this.stopRequested) await sleep(500);
@@ -488,35 +562,115 @@ export default class PigeonholePlugin extends Plugin {
     return payload?.answers?.category;
   }
 
-  private post(body: object) {
+  private post(body: SystemOneRequest) {
+    const headers: Record<string, string> = {
+      Authorization: `Bearer ${this.apiKey()}`,
+      "Content-Type": "application/json",
+    };
+    if (body.assets) headers["TypeSafe-Danger-Zone-Images"] = "true";
     return requestUrl({
       url: API_URL,
       method: "POST",
-      headers: {
-        Authorization: `Bearer ${this.apiKey()}`,
-        "Content-Type": "application/json",
-      },
+      headers,
       body: JSON.stringify(body),
       throw: false,
     });
   }
 
-  async classifyFile(file: TFile, categories: Category[]): Promise<Decision> {
+  private async noteSubject(file: TFile): Promise<Subject> {
     const raw = await this.app.vault.cachedRead(file);
     // Frontmatter would eat into maxChars, and an existing property biases reclassification.
     const end = this.app.metadataCache.getFileCache(file)?.frontmatterPosition?.end.offset;
     const content = end === undefined ? raw : raw.slice(end).trimStart();
+    const images = this.settings.noteImages ? await this.embeddedImages(file, raw, end ?? 0) : [];
+    return { kind: "note", title: file.basename, content, images };
+  }
+
+  // The images in the note body, in document order, up to maxImages that could be read.
+  private async embeddedImages(file: TFile, raw: string, bodyStart: number): Promise<string[]> {
+    type Source = { offset: number; read: () => Promise<{ data: ArrayBuffer; mime: string }> };
+    const sources: Source[] = [];
+    const seen = new Set<string>();
+
+    for (const embed of this.app.metadataCache.getFileCache(file)?.embeds ?? []) {
+      const target = this.app.metadataCache.getFirstLinkpathDest(
+        getLinkpath(embed.link),
+        file.path,
+      );
+      const mime = target ? imageMime(target.extension) : undefined;
+      if (!target || mime === undefined || this.excluded(target.path) || seen.has(target.path)) {
+        continue;
+      }
+      seen.add(target.path);
+      sources.push({
+        offset: embed.position.start.offset,
+        read: async () => ({ data: await this.app.vault.readBinary(target), mime }),
+      });
+    }
+
+    // Obsidian's link cache covers vault files only, so URLs are found in the text.
+    EXTERNAL_IMAGE.lastIndex = 0;
+    for (let m = EXTERNAL_IMAGE.exec(raw); m; m = EXTERNAL_IMAGE.exec(raw)) {
+      const url = m[1];
+      if (m.index < bodyStart || seen.has(url)) continue;
+      seen.add(url);
+      sources.push({ offset: m.index, read: () => this.fetchImage(url) });
+    }
+
+    sources.sort((a, b) => a.offset - b.offset);
+    const limit = Math.min(this.settings.maxImages, MAX_IMAGES);
+    const images: string[] = [];
+    for (const source of sources) {
+      if (images.length >= limit) break;
+      try {
+        const { data, mime } = await source.read();
+        images.push(await toJpegBase64(data, mime));
+      } catch (e) {
+        // One unreadable image should not cost the note its classification.
+        console.warn("Pigeonhole: image skipped in", file.path, e);
+      }
+    }
+    return images;
+  }
+
+  private async fetchImage(url: string): Promise<{ data: ArrayBuffer; mime: string }> {
+    // ponytail: requestUrl cannot be aborted, so the timeout only stops waiting for it.
+    const res = await Promise.race([
+      requestUrl({ url, throw: false }),
+      sleep(URL_IMAGE_TIMEOUT).then(() => null),
+    ]);
+    if (res === null) throw new Error(`Timed out: ${url}`);
+    if (res.status !== 200) throw new Error(`HTTP ${res.status}: ${url}`);
+    // The browser sniffs raster formats itself; only SVG needs its type to decode.
+    const type = header(res.headers, "content-type")?.split(";")[0].trim().toLowerCase() ?? "";
+    return { data: res.arrayBuffer, mime: type.startsWith("image/") ? type : "" };
+  }
+
+  private async imageSubject(file: TFile): Promise<Subject> {
+    try {
+      const data = await this.app.vault.readBinary(file);
+      const image = await toJpegBase64(data, imageMime(file.extension) ?? "");
+      return { kind: "image", title: file.name, image };
+    } catch (e) {
+      console.error("Pigeonhole:", file.path, e);
+      throw new Error(msg.errImage);
+    }
+  }
+
+  async classifyFile(file: TFile, categories: Category[]): Promise<Decision> {
+    const subject = isImage(file) ? await this.imageSubject(file) : await this.noteSubject(file);
     const { maxChars, confidenceThreshold } = this.settings;
 
-    const answer = await this.ask(buildRequest(content, file.basename, categories, maxChars));
+    const answer = await this.ask(buildRequest(subject, categories, maxChars));
     const decision = decide(answer, categories, confidenceThreshold);
     if (decision.action !== "move") return decision;
 
     const children = named(decision.category.children ?? []);
     let sub: Category | undefined;
     if (children.length > 0) {
+      // Images are sent again here; they were encoded once above.
       const subAnswer = await this.ask(
-        buildRequest(content, file.basename, children, maxChars, decision.category),
+        buildRequest(subject, children, maxChars, decision.category),
       );
       const subDecision = decide(subAnswer, children, confidenceThreshold);
       if (subDecision.action === "move") sub = subDecision.category;
@@ -536,15 +690,23 @@ export default class PigeonholePlugin extends Plugin {
       throw new Error(msg.errMissingFolder(folder));
     }
 
-    const [head, ...rest] = category.name.split("/");
-    const subName = sub ? sub.name : rest.join("/");
+    if (isImage(file)) {
+      // Recorded before the move; the rename handler carries it to the new path.
+      this.settings.classifiedImages[file.path] = sub
+        ? `${category.name}/${sub.name}`
+        : category.name;
+      await this.saveSettings();
+    } else {
+      const [head, ...rest] = category.name.split("/");
+      const subName = sub ? sub.name : rest.join("/");
 
-    await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
-      fm[this.settings.propertyName] = head;
-      if (!this.settings.subPropertyName) return;
-      if (subName !== "") fm[this.settings.subPropertyName] = subName;
-      else delete fm[this.settings.subPropertyName];
-    });
+      await this.app.fileManager.processFrontMatter(file, (fm: Record<string, unknown>) => {
+        fm[this.settings.propertyName] = head;
+        if (!this.settings.subPropertyName) return;
+        if (subName !== "") fm[this.settings.subPropertyName] = subName;
+        else delete fm[this.settings.subPropertyName];
+      });
+    }
 
     if (!move || file.parent?.path === folder) return;
     if (missingFolder) await this.createFolder(folder);
@@ -624,6 +786,20 @@ class PigeonholeSettingTab extends PluginSettingTab {
         control: { type: "number", key: "maxFolderDepth", min: 0 },
       },
       { name: msg.setMaxChars, control: { type: "number", key: "maxChars", min: 1 } },
+      {
+        name: msg.setNoteImages,
+        desc: msg.setNoteImagesDesc,
+        control: { type: "toggle", key: "noteImages" },
+      },
+      {
+        name: msg.setMaxImages,
+        control: { type: "number", key: "maxImages", min: 1, max: MAX_IMAGES },
+      },
+      {
+        name: msg.setImageTargets,
+        desc: msg.setImageTargetsDesc,
+        control: { type: "toggle", key: "imageTargets" },
+      },
       {
         name: msg.setCreateFolder,
         desc: msg.setCreateFolderDesc,
