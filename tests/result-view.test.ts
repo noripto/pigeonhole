@@ -1,7 +1,7 @@
 import { TFile, WorkspaceLeaf } from "obsidian";
 import { beforeEach, describe, expect, test } from "vitest";
-import { msg } from "../i18n.ts";
-import { ResultView, type RunResult } from "../result-view.ts";
+import { msg } from "../src/i18n.ts";
+import { ResultView, type RunResult } from "../src/result-view.ts";
 import { El, rendered, resetStub } from "./obsidian.ts";
 
 const empty = (): RunResult => ({ moved: [], tagged: [], skipped: [], failed: [], changes: [] });

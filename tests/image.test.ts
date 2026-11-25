@@ -1,5 +1,5 @@
 import { describe, expect, test } from "vitest";
-import { fit, imageMime } from "../image.ts";
+import { fit, imageMime } from "../src/image.ts";
 
 describe("fit", () => {
   test("shrinks a large photo to the longest allowed side", () => {

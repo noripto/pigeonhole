@@ -1,3 +1,5 @@
+import type { TFile } from "obsidian";
+
 // Jev accepts PNG or JPEG with each side between these bounds, and rejects anything else.
 const MIN_SIDE = 280;
 const MAX_SIDE = 1568;
@@ -14,6 +16,8 @@ const MIME = new Map([
 ]);
 
 export const imageMime = (ext: string): string | undefined => MIME.get(ext.toLowerCase());
+
+export const isImage = (file: TFile) => imageMime(file.extension) !== undefined;
 
 export type Fit = { width: number; height: number; drawWidth: number; drawHeight: number };
 

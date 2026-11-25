@@ -1,13 +1,6 @@
 import {
-  App,
-  ConfirmationModal,
-  Menu,
   Notice,
   Plugin,
-  PluginSettingTab,
-  SecretComponent,
-  Setting,
-  SettingPage,
   TFile,
   TFolder,
   Vault,
@@ -15,8 +8,7 @@ import {
   getLinkpath,
   normalizePath,
   requestUrl,
-  type SettingDefinitionItem,
-  type SettingDefinitionPage,
+  type Menu,
 } from "obsidian";
 import {
   buildRequest,
@@ -26,10 +18,20 @@ import {
   type Decision,
   type Subject,
   type SystemOneRequest,
-} from "./classify.ts";
-import { msg } from "./i18n.ts";
-import { imageMime, toJpegBase64 } from "./image.ts";
-import { RESULT_VIEW, ResultView, type RunResult } from "./result-view.ts";
+} from "./src/classify.ts";
+import { confirm } from "./src/confirm.ts";
+import { msg } from "./src/i18n.ts";
+import { imageMime, isImage, toJpegBase64 } from "./src/image.ts";
+import { RESULT_VIEW, ResultView, type RunResult } from "./src/result-view.ts";
+import {
+  DEFAULT_CATEGORIES,
+  DEFAULT_SETTINGS,
+  MAX_IMAGES,
+  named,
+  type PigeonholeSettings,
+} from "./src/settings.ts";
+import { PigeonholeSettingTab } from "./src/settings-tab.ts";
+import { header, joinFolder, logError } from "./src/util.ts";
 
 const API_URL = "https://api.typesafe.ai/v1/systemone";
 
@@ -44,115 +46,12 @@ const FATAL_STATUS = new Set([401, 403, 429, 529]);
 
 const MAX_RETRIES = 3;
 
-// Keeps a request well under the API's 32 MiB body limit.
-const MAX_IMAGES = 10;
-
 const URL_IMAGE_TIMEOUT = 15000;
 
 const EXTERNAL_IMAGE = /!\[[^\]]*\]\((https?:\/\/[^\s)]+)/g;
 
-const isImage = (file: TFile) => imageMime(file.extension) !== undefined;
-
-const header = (headers: Record<string, string>, name: string) =>
-  Object.entries(headers).find(([k]) => k.toLowerCase() === name)?.[1];
-
-const logError = (e: unknown) => console.error("Pigeonhole:", e);
-
 // Above this many notes at once (e.g. after a sync), classify on save asks first.
 const AUTO_CONFIRM_OVER = 10;
-
-class ConfirmModal extends ConfirmationModal {
-  private confirmed = false;
-  private resolve: (ok: boolean) => void;
-
-  constructor(app: App, body: string, resolve: (ok: boolean) => void) {
-    super(app);
-    this.resolve = resolve;
-    this.setTitle("Pigeonhole").setContent(body);
-    this.addButton((b) =>
-      b
-        .setButtonText(msg.confirmRun)
-        .setCta()
-        .setInitialFocus()
-        .onClick(() => {
-          this.confirmed = true;
-        }),
-    );
-    this.addCancelButton();
-  }
-
-  onClose() {
-    super.onClose();
-    this.resolve(this.confirmed);
-  }
-}
-
-const confirm = (app: App, body: string) =>
-  new Promise<boolean>((resolve) => new ConfirmModal(app, body, resolve).open());
-
-const named = (cats: Category[]) => cats.filter((c) => c.name !== "");
-
-const blank = (): Category => ({ name: "", description: "", folder: "" });
-
-const DEFAULT_CATEGORIES: Category[] = [
-  {
-    name: "meeting",
-    description:
-      "Notes from a meeting or call: who was there, what was decided, what happens next.",
-    folder: "meeting",
-  },
-  {
-    name: "idea",
-    description: "A thought worth keeping: something half-formed, not yet a plan.",
-    folder: "idea",
-  },
-  {
-    name: "reference",
-    description: "Material to look up later: steps, specs, findings, collected links.",
-    folder: "reference",
-  },
-];
-
-const joinFolder = (parent: string, child: string) =>
-  parent === "" || child === "" ? parent || child : `${parent}/${child}`;
-
-type PigeonholeSettings = {
-  apiKeySecret: string;
-  categories: Category[];
-  propertyName: string;
-  subPropertyName: string;
-  confidenceThreshold: number;
-  maxChars: number;
-  excludePaths: string[];
-  maxFolderDepth: number;
-  autoOnSave: boolean;
-  reclassify: boolean;
-  createMissingFolder: boolean;
-  noteImages: boolean;
-  maxImages: number;
-  imageTargets: boolean;
-  // Images have no frontmatter, so the attribute given to each image is kept here, by path.
-  classifiedImages: Record<string, string>;
-};
-
-const DEFAULT_SETTINGS: PigeonholeSettings = {
-  apiKeySecret: "pigeonhole-api-key",
-  categories: [],
-  propertyName: "category",
-  subPropertyName: "subcategory",
-  confidenceThreshold: 0.6,
-  maxChars: 4000,
-  excludePaths: [],
-  maxFolderDepth: 0,
-  autoOnSave: false,
-  reclassify: false,
-  createMissingFolder: true,
-  noteImages: false,
-  maxImages: 4,
-  imageTargets: false,
-  classifiedImages: {},
-};
-
 export default class PigeonholePlugin extends Plugin {
   settings: PigeonholeSettings = DEFAULT_SETTINGS;
 
@@ -729,224 +628,5 @@ export default class PigeonholePlugin extends Plugin {
       path = normalizePath(`${folder}/${file.basename} ${n}.${file.extension}`);
     }
     return path;
-  }
-}
-
-const resolve = (root: unknown, key: string): unknown =>
-  key.split(".").reduce<unknown>((value, part) => (value as Record<string, unknown>)[part], root);
-
-const assign = (root: Record<string, unknown>, key: string, value: unknown) => {
-  const parts = key.split(".");
-  const last = parts.pop() ?? "";
-  const target = parts.reduce<Record<string, unknown>>(
-    (obj, part) => obj[part] as Record<string, unknown>,
-    root,
-  );
-  target[last] = value;
-};
-
-class PigeonholeSettingTab extends PluginSettingTab {
-  plugin: PigeonholePlugin;
-
-  constructor(app: App, plugin: PigeonholePlugin) {
-    super(app, plugin);
-    this.plugin = plugin;
-  }
-
-  getSettingDefinitions(): SettingDefinitionItem[] {
-    const s = this.plugin.settings;
-    return [
-      {
-        name: msg.setApiKey,
-        desc: msg.setApiKeyDesc,
-        render: (setting) => {
-          setting.addComponent((el) =>
-            new SecretComponent(this.app, el).setValue(s.apiKeySecret).onChange((id) => {
-              s.apiKeySecret = id;
-              void this.plugin.saveSettings();
-            }),
-          );
-        },
-      },
-      { name: msg.setProperty, control: { type: "text", key: "propertyName" } },
-      { name: msg.setSubProperty, control: { type: "text", key: "subPropertyName" } },
-      {
-        name: msg.setThreshold,
-        desc: msg.setThresholdDesc,
-        control: { type: "slider", key: "confidenceThreshold", min: 0, max: 1, step: 0.05 },
-      },
-      {
-        name: msg.setExclude,
-        desc: msg.setExcludeDesc,
-        control: { type: "textarea", key: "excludePaths", placeholder: msg.phExclude, rows: 3 },
-      },
-      {
-        name: msg.setFolderDepth,
-        desc: msg.setFolderDepthDesc,
-        control: { type: "number", key: "maxFolderDepth", min: 0 },
-      },
-      { name: msg.setMaxChars, control: { type: "number", key: "maxChars", min: 1 } },
-      {
-        name: msg.setNoteImages,
-        desc: msg.setNoteImagesDesc,
-        control: { type: "toggle", key: "noteImages" },
-      },
-      {
-        name: msg.setMaxImages,
-        control: { type: "number", key: "maxImages", min: 1, max: MAX_IMAGES },
-      },
-      {
-        name: msg.setImageTargets,
-        desc: msg.setImageTargetsDesc,
-        control: { type: "toggle", key: "imageTargets" },
-      },
-      {
-        name: msg.setCreateFolder,
-        desc: msg.setCreateFolderDesc,
-        control: { type: "toggle", key: "createMissingFolder" },
-      },
-      {
-        name: msg.setAutoOnSave,
-        desc: msg.setAutoOnSaveDesc,
-        control: { type: "toggle", key: "autoOnSave" },
-      },
-      {
-        name: msg.setReclassify,
-        desc: msg.setReclassifyDesc,
-        control: { type: "toggle", key: "reclassify" },
-      },
-      {
-        type: "list",
-        name: msg.attributes,
-        desc: msg.attributesHint,
-        emptyState: msg.attributesEmpty,
-        addItem: {
-          name: msg.addAttribute,
-          action: () => this.mutate(() => s.categories.push(blank())),
-        },
-        onDelete: (index) => this.mutate(() => s.categories.splice(index, 1)),
-        items: s.categories.map((cat) => this.page(cat)),
-      },
-    ];
-  }
-
-  getControlValue(key: string): unknown {
-    if (key === "excludePaths") return this.plugin.settings.excludePaths.join("\n");
-    return resolve(this.plugin.settings, key);
-  }
-
-  async setControlValue(key: string, value: unknown): Promise<void> {
-    const s = this.plugin.settings;
-    if (key === "excludePaths") {
-      s.excludePaths = String(value)
-        .split("\n")
-        .map((line) => normalizePath(line.trim()))
-        .filter((line) => line !== "" && line !== "." && line !== "/");
-    } else {
-      const next = typeof value === "string" && !key.endsWith("description") ? value.trim() : value;
-      assign(s, key, next);
-      if (s.propertyName === "") s.propertyName = DEFAULT_SETTINGS.propertyName;
-    }
-    await this.plugin.saveSettings();
-  }
-
-  private page(cat: Category): SettingDefinitionPage {
-    return {
-      type: "page",
-      name: cat.name === "" ? msg.unnamed : cat.name,
-      displayValue: () => cat.folder,
-      page: () => new AttributePage(this, cat),
-    };
-  }
-
-  private mutate(change: () => void) {
-    change();
-    this.update();
-    void this.plugin.saveSettings();
-  }
-}
-
-class AttributePage extends SettingPage {
-  tab: PigeonholeSettingTab;
-  cat: Category;
-
-  constructor(tab: PigeonholeSettingTab, cat: Category) {
-    super();
-    this.tab = tab;
-    this.cat = cat;
-    this.title = cat.name === "" ? msg.unnamed : cat.name;
-  }
-
-  display(): void {
-    const el = this.containerEl;
-    el.empty();
-    this.fields(el, this.cat);
-
-    new Setting(el)
-      .setName(msg.children)
-      .setHeading()
-      .addButton((b) =>
-        b.setButtonText(msg.addChild).onClick(() => {
-          if (!this.cat.children) this.cat.children = [];
-          this.cat.children.push(blank());
-          this.save();
-        }),
-      );
-
-    const children = this.cat.children ?? [];
-    if (children.length === 0) {
-      el.createEl("p", { text: msg.childrenEmpty, cls: "setting-item-description" });
-      return;
-    }
-
-    children.forEach((child, index) => {
-      new Setting(el)
-        .setName(child.name === "" ? msg.unnamed : child.name)
-        .setHeading()
-        .addExtraButton((b) =>
-          b
-            .setIcon("trash")
-            .setTooltip(msg.remove)
-            .onClick(() => {
-              this.cat.children?.splice(index, 1);
-              this.save();
-            }),
-        );
-      this.fields(el, child);
-    });
-  }
-
-  private fields(el: HTMLElement, cat: Category) {
-    new Setting(el).setName(msg.phName).addText((t) =>
-      t.setValue(cat.name).onChange((v) => {
-        cat.name = v.trim();
-        this.persist();
-      }),
-    );
-    new Setting(el).setName(msg.phDesc).addTextArea((t) =>
-      t.setValue(cat.description).onChange((v) => {
-        cat.description = v;
-        this.persist();
-      }),
-    );
-    new Setting(el).setName(msg.phFolder).addText((t) =>
-      t.setValue(cat.folder).onChange((v) => {
-        cat.folder = v.trim();
-        this.persist();
-      }),
-    );
-  }
-
-  private persist() {
-    void this.tab.plugin.saveSettings();
-  }
-
-  private save() {
-    this.persist();
-    this.display();
-  }
-
-  hide(): void {
-    this.tab.update();
   }
 }

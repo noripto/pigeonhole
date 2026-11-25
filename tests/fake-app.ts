@@ -1,6 +1,6 @@
 import { App, TFile, TFolder, type TAbstractFile } from "obsidian";
 import { expect } from "vitest";
-import { MODEL, type SystemOneRequest } from "../classify.ts";
+import { MODEL, type SystemOneRequest } from "../src/classify.ts";
 import PigeonholePlugin from "../main.ts";
 import { http, pluginState, type FakeResponse } from "./obsidian.ts";
 

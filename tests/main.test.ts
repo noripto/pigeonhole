@@ -1,13 +1,13 @@
 import { PluginSettingTab, type TFile } from "obsidian";
 import { afterEach, beforeEach, describe, expect, test, vi } from "vitest";
-import { MODEL, OTHER, type Category } from "../classify.ts";
-import { msg } from "../i18n.ts";
+import { MODEL, OTHER, type Category } from "../src/classify.ts";
+import { msg } from "../src/i18n.ts";
 import type PigeonholePlugin from "../main.ts";
 import { answer, bytes, requests, serve, setSleep, setup, yieldSleep } from "./fake-app.ts";
 import { http, modal, notices, pluginState, resetStub } from "./obsidian.ts";
 
-vi.mock("../image.ts", async (importOriginal) => {
-  const real = await importOriginal<typeof import("../image.ts")>();
+vi.mock("../src/image.ts", async (importOriginal) => {
+  const real = await importOriginal<typeof import("../src/image.ts")>();
   return {
     ...real,
     // Node has no canvas. The fake encoding keeps the source visible in the request.

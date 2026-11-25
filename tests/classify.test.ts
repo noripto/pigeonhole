@@ -1,6 +1,6 @@
 import { describe, expect, test } from "vitest";
-import { MODEL, OTHER, buildRequest, decide, type Category } from "../classify.ts";
-import { msg } from "../i18n.ts";
+import { MODEL, OTHER, buildRequest, decide, type Category } from "../src/classify.ts";
+import { msg } from "../src/i18n.ts";
 
 const meeting: Category = { name: "meeting", description: "Notes from a meeting", folder: "m" };
 const idea: Category = { name: "idea", description: "", folder: "i" };
